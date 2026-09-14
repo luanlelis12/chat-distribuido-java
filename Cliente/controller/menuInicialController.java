@@ -25,6 +25,7 @@ import javafx.scene.layout.Pane;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
+import network.Descobridor;
 import util.processadorTexto;
 
 public class menuInicialController implements Initializable {
@@ -90,7 +91,7 @@ public class menuInicialController implements Initializable {
     } // fim do if
 
     // Faz um broadcast para encontrar o servidor
-    String ipServidor = descobrirServidor();
+    String ipServidor = Descobridor.descobrirServidor();
 
     if (ipServidor == null) { // se o servidor estiver fora de ar emitir alert
       try {
@@ -187,39 +188,5 @@ public class menuInicialController implements Initializable {
       e.printStackTrace();
     } // fim do try-catch
   } // fim do metodo abrirSobre
-
-  /*
-   * Metodo: descobrirServidor
-   * Funcao: Envia um pacote UDP em broadcast para localizar o servidor na rede
-   * Parametros: nenhum
-   * Retorno: String (O endereço IP do servidor)
-   */
-  private String descobrirServidor() {
-    System.out.println("CLIENTE - Procurando servidor na rede local...");
-    try (java.net.DatagramSocket socket = new java.net.DatagramSocket()) {
-      socket.setBroadcast(true);
-      socket.setSoTimeout(3000);
-
-      byte[] dados = "DISCOVER".getBytes();
-
-      java.net.DatagramPacket pacoteEnvio = new java.net.DatagramPacket(dados, dados.length,
-          java.net.InetAddress.getByName("255.255.255.255"), 8888);
-      socket.send(pacoteEnvio);
-
-      byte[] bufferResposta = new byte[1024];
-      java.net.DatagramPacket pacoteResposta = new java.net.DatagramPacket(bufferResposta, bufferResposta.length);
-      socket.receive(pacoteResposta);
-      
-      String resposta = new String(pacoteResposta.getData(), 0, pacoteResposta.getLength()).trim();
-      if (resposta.equals("IP")) {
-        String ipEncontrado = pacoteResposta.getAddress().getHostAddress();
-        System.out.println("CLIENTE - Servidor encontrado no IP: " + ipEncontrado);
-        return ipEncontrado;
-      } // fim do if
-    } catch (Exception e) {
-      System.out.println("CLIENTE - Servidor nao encontrado (Timeout). ");
-    } // fim do try-catch
-    return null;
-  } // fim do metodo descobrirServidor
 
 }
