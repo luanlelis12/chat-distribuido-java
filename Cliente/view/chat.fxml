@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.control.TextArea?>
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.layout.Pane?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.text.Font?>
+
+<AnchorPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="670.0" prefWidth="1320.0" stylesheets="@style.css" xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1" fx:controller="controller.clienteController">
+   <children>
+      <AnchorPane prefHeight="670.0" prefWidth="360.0" styleClass="grupos">
+         <children>
+            <Button layoutX="200.0" layoutY="65.0" mnemonicParsing="false" onAction="#abrirTelaEntrarConversa" prefHeight="60.0" prefWidth="60.0" styleClass="buttonAddConversas" />
+            <Button layoutX="270.0" layoutY="65.0" mnemonicParsing="false" onAction="#abrirListaGrupos" prefHeight="60.0" prefWidth="60.0" styleClass="buttonConversas" />
+            <ScrollPane fitToWidth="true" layoutX="40.0" layoutY="140.0" prefHeight="490.0" prefWidth="290.0">
+              <content>
+                <AnchorPane maxWidth="1.7976931348623157E308" minHeight="0.0" minWidth="0.0" prefWidth="288.0">
+                     <children>
+                        <VBox fx:id="vboxGrupos" prefHeight="200.0" prefWidth="100.0" />
+                     </children>
+                  </AnchorPane>
+              </content>
+            </ScrollPane>
+         </children>
+      </AnchorPane>
+      <AnchorPane layoutX="360.0" prefHeight="670.0" prefWidth="960.0" styleClass="chat">
+         <children>
+            <Button fx:id="abrirListaMembrosButton" layoutX="850.0" layoutY="100.0" mnemonicParsing="false" onAction="#abrirListaMembros" prefHeight="60.0" prefWidth="60.0" styleClass="buttonConversas" visible="false" />
+            <ScrollPane fx:id="conversaScrollPane" fitToWidth="true" layoutX="40.0" layoutY="90.0" prefHeight="400.0" prefWidth="780.0">
+              <content>
+                <AnchorPane maxWidth="-Infinity" minHeight="0.0" minWidth="0.0" prefWidth="790.0">
+                     <children>
+                        <VBox fx:id="conversaVBox" layoutX="10.0" layoutY="10.0" maxWidth="-Infinity" prefWidth="760.0" spacing="10.0" />
+                     </children>
+                  </AnchorPane>
+              </content>
+               <padding>
+                  <Insets left="10.0" right="10.0" top="10.0" />
+               </padding>
+            </ScrollPane>
+            <Button layoutX="910.0" layoutY="10.0" mnemonicParsing="false" onAction="#fecharAplicacao" prefHeight="40.0" prefWidth="40.0" styleClass="buttonFecharChat" />
+            <Button layoutX="860.0" layoutY="10.0" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" mnemonicParsing="false" onAction="#minimizarTela" prefHeight="40.0" prefWidth="40.0" styleClass="buttonMinimizar" />
+            <Button fx:id="enviarButton" layoutX="820.0" layoutY="550.0" mnemonicParsing="false" onAction="#enviarMensagem" prefHeight="80.0" prefWidth="120.0" styleClass="buttonEnviarDes" />
+            <TextArea fx:id="mensagemField" disable="true" layoutX="40.0" layoutY="560.0" maxWidth="770.0" prefHeight="70.0" prefWidth="770.0" wrapText="true" />
+            <Label fx:id="conversaSelecionadaLabel" layoutX="100.0" layoutY="10.0" maxHeight="40.0" prefHeight="40.0" textFill="WHITE">
+               <font>
+                  <Font name="Arial" size="30.0" />
+               </font>
+            </Label>
+         </children>
+      </AnchorPane>
+      <Pane fx:id="barraSuperior" prefHeight="60.0" prefWidth="1220.0">
+         <children>
+            <Label layoutX="30.0" layoutY="10.0" text="CONVERSAS" textFill="WHITE">
+               <font>
+                  <Font name="System Bold" size="30.0" />
+               </font></Label>
+         </children>
+      </Pane>
+   </children>
+</AnchorPane>

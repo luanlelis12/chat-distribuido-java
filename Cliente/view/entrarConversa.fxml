@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.RadioButton?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.control.ToggleGroup?>
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.layout.Pane?>
+<?import javafx.scene.text.Font?>
+
+<AnchorPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="360.0" prefWidth="480.0" styleClass="alert" stylesheets="@style.css" xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1" fx:controller="controller.entrarConversaController">
+   <children>
+      <Button layoutX="170.0" layoutY="280.0" mnemonicParsing="false" onAction="#confirmarEntrada" prefHeight="50.0" prefWidth="140.0" styleClass="buttonAlert" text="ENTRAR" />
+      <Button layoutX="430.0" layoutY="10.0" mnemonicParsing="false" onAction="#fecharTela" prefHeight="40.0" prefWidth="40.0" styleClass="buttonFecharChat" />
+      <Pane fx:id="barraSuperior" prefHeight="60.0" prefWidth="420.0">
+         <children>
+            <Label layoutX="20.0" layoutY="15.0" text="ADICIONAR CONVERSA" textFill="WHITE">
+               <font>
+                  <Font name="System Bold" size="20.0" />
+               </font>
+            </Label>
+         </children></Pane>
+      <TextField fx:id="nomeConversaField" layoutX="30.0" layoutY="120.0" prefHeight="30.0" prefWidth="420.0" promptText="Nome do grupo ou usuario" />
+      <RadioButton layoutX="230.0" layoutY="165.0" mnemonicParsing="false" selected="true" text="GRUPO">
+         <toggleGroup>
+            <ToggleGroup fx:id="tipoDeConversa" />
+         </toggleGroup>
+      </RadioButton>
+      <RadioButton layoutX="320.0" layoutY="165.0" mnemonicParsing="false" text="USUARIO" toggleGroup="$tipoDeConversa" />
+      <Label layoutX="30.0" layoutY="90.0" text="NOME DO GRUPO OU USUARIO:">
+         <font>
+            <Font name="System Bold" size="18.0" />
+         </font>
+      </Label>
+      <Label layoutX="30.0" layoutY="160.0" text="TIPO DE CONVERSA:">
+         <font>
+            <Font name="System Bold" size="18.0" />
+         </font>
+      </Label>
+   </children>
+</AnchorPane>

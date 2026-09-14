@@ -1,0 +1,17 @@
+# Arquivos compilados do Java
+*.class
+*.jar
+
+# Pastas de saida/compilacao
+bin/
+build/
+out/
+target/
+
+# Configuracoes de IDE
+.vscode/
+.settings/
+.classpath
+.project
+.idea/
+.DS_Store

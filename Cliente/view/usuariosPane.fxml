@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.layout.Pane?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.scene.text.Font?>
+
+<AnchorPane prefHeight="670.0" prefWidth="360.0" styleClass="paneUsuarios" stylesheets="@style.css" xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1" fx:controller="controller.listarConversasController">
+   <children>
+      <Pane fx:id="barraSuperior" prefHeight="60.0" prefWidth="250.0">
+         <children>
+            <Label fx:id="tituloLabel" layoutX="60.0" layoutY="10.0" textFill="WHITE">
+               <font>
+                  <Font name="System Bold" size="30.0" />
+               </font>
+            </Label>
+         </children>
+      </Pane>
+      <ScrollPane fitToWidth="true" layoutX="40.0" layoutY="269.0" prefHeight="360.0" prefWidth="290.0">
+         <content>
+            <AnchorPane maxWidth="1.7976931348623157E308" minHeight="0.0" minWidth="0.0" prefWidth="289.0">
+               <children>
+                  <VBox fx:id="vboxConversas" prefHeight="200.0" prefWidth="280.0" />
+               </children>
+            </AnchorPane>
+         </content>
+      </ScrollPane>
+      <Button layoutX="310.0" layoutY="10.0" mnemonicParsing="false" onAction="#fecharTela" prefHeight="40.0" prefWidth="40.0" styleClass="buttonFecharChat" />
+      <Button layoutX="260.0" layoutY="10.0" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" mnemonicParsing="false" onAction="#minimizarTela" prefHeight="40.0" prefWidth="40.0" styleClass="buttonMinimizar" />
+   </children>
+</AnchorPane>

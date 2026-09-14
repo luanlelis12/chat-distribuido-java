@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.image.Image?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.layout.Pane?>
+<?import javafx.scene.shape.Line?>
+<?import javafx.scene.text.Font?>
+<?import javafx.scene.text.Text?>
+
+<AnchorPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="683.0" prefWidth="1024.0" styleClass="menuInicial" stylesheets="@style.css" xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1" fx:controller="controller.menuInicialController">
+   <children>
+      <Button layoutX="641.0" layoutY="279.0" mnemonicParsing="false" onAction="#criarCliente" prefHeight="120.0" prefWidth="120.0" styleClass="buttonIniciar" />
+      <Button layoutX="301.0" layoutY="604.0" mnemonicParsing="false" onAction="#fecharAplicacao" prefHeight="60.0" prefWidth="60.0" styleClass="buttonFechar" />
+      <Button layoutX="662.0" layoutY="604.0" mnemonicParsing="false" onAction="#abrirSobre" prefHeight="60.0" prefWidth="60.0" styleClass="buttonInfo" />
+      <ImageView fitHeight="335.0" fitWidth="335.0" layoutX="176.0" layoutY="180.0" pickOnBounds="true" preserveRatio="true">
+         <image>
+            <Image url="@img/logoMsn.png" />
+         </image>
+      </ImageView>
+      <Line endX="-100.0" endY="346.0" layoutX="682.0" layoutY="220.0" startX="-100.0" startY="-127.0" stroke="WHITE" strokeWidth="4.0" />
+      <Text fill="WHITE" layoutX="376.0" layoutY="645.0" strokeType="OUTSIDE" strokeWidth="0.0" text="DESLIGAR">
+         <font>
+            <Font name="System Bold" size="27.0" />
+         </font>
+      </Text>
+      <Text fill="WHITE" layoutX="735.0" layoutY="644.0" strokeType="OUTSIDE" strokeWidth="0.0" text="INFO">
+         <font>
+            <Font name="System Bold" size="27.0" />
+         </font>
+      </Text>
+      <TextField fx:id="nomeTextField" layoutX="641.0" layoutY="419.0" prefHeight="39.0" prefWidth="253.0" promptText="INSIRA SEU NOME" />
+      <Text fill="WHITE" layoutX="778.0" layoutY="355.0" strokeType="OUTSIDE" strokeWidth="0.0" text="INICIAR">
+         <font>
+            <Font name="System Bold" size="31.0" />
+         </font>
+      </Text>
+      <Pane fx:id="barraSuperior" prefHeight="60.0" prefWidth="1024.0" />
+   </children>
+</AnchorPane>

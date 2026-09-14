@@ -1,0 +1,219 @@
+.menuInicial {
+  -fx-background-image: url("img/bgMenuInicial.png");
+  -fx-background-color: #2731a5;
+  -fx-background-size: cover;
+  -fx-background-repeat: no-repeat;
+  -fx-background-position: center center;
+}
+
+.button {
+  -fx-background-color: transparent;
+}
+
+.button:hover,
+.itemConversa:hover {
+  -fx-cursor: hand;
+}
+
+.buttonFechar {
+  -fx-background-image: url("img/buttonFechar.png");
+}
+
+.buttonFechar:hover {
+  -fx-background-image: url("img/buttonFecharHover.png");
+}
+
+.buttonFechar:pressed {
+  -fx-background-image: url("img/buttonFecharPressed.png");
+}
+
+.buttonFecharChat {
+  -fx-background-image: url("img/buttonClose.png");
+}
+
+.buttonFecharChat:hover {
+  -fx-background-image: url("img/buttonCloseHover.png");
+}
+
+.buttonFecharChat:pressed {
+  -fx-background-image: url("img/buttonClosePressed.png");
+}
+
+.buttonMinimizar {
+  -fx-background-image: url("img/buttonMinimizar.png");
+}
+
+.buttonMinimizar:hover {
+  -fx-background-image: url("img/buttonMinimizarHover.png");
+}
+
+.buttonMinimizar:pressed {
+  -fx-background-image: url("img/buttonMinimizarPressed.png");
+}
+
+.buttonEnviar {
+  -fx-background-image: url("img/buttonEnviar.png");
+}
+
+.buttonEnviarDes {
+  -fx-background-image: url("img/buttonEnviarDes.png");
+  -fx-cursor: none;
+}
+
+.buttonEnviar:hover {
+  -fx-background-image: url("img/buttonEnviarHover.png");
+}
+
+.buttonEnviar:pressed {
+  -fx-background-image: url("img/buttonEnviarPressed.png");
+}
+
+.buttonInfo {
+  -fx-background-image: url("img/buttonInfo.png");
+}
+
+.buttonInfo:hover {
+  -fx-background-image: url("img/buttonInfoHover.png");
+}
+
+.buttonInfo:pressed {
+  -fx-background-image: url("img/buttonInfoPressed.png");
+}
+
+.buttonIniciar {
+  -fx-background-image: url("img/buttonIniciar.png");
+}
+
+.buttonIniciar:hover {
+  -fx-background-image: url("img/buttonIniciarHover.png");
+}
+
+.buttonIniciar:pressed {
+  -fx-background-image: url("img/buttonIniciarPressed.png");
+}
+
+.buttonAlert {
+  -fx-background-image: url("img/buttonAlert.png");
+}
+
+.buttonAlert:hover {
+  -fx-background-image: url("img/buttonAlertHover.png");
+}
+
+.buttonAlert:pressed {
+  -fx-background-image: url("img/buttonAlertPressed.png");
+}
+
+.buttonSair {
+  -fx-background-image: url("img/buttonSair.png");
+}
+
+.buttonSair:hover {
+  -fx-background-image: url("img/buttonSairHover.png");
+}
+
+.buttonSair:pressed {
+  -fx-background-image: url("img/buttonSairPressed.png");
+}
+
+.buttonGrupo {
+  -fx-background-color: #e9e9e9;
+}
+
+.buttonGrupo:hover {
+  -fx-background-color: #ffffff;
+  -fx-cursor: hand;
+}
+
+.buttonGrupo:pressed {
+  -fx-background-color: #d0d0d0;
+}
+
+.chat {
+  -fx-background-image: url("img/bgChat.png");
+}
+
+.grupos {
+  -fx-background-image: url("img/bgConversas.png");
+}
+
+.alert {
+  -fx-background-image: url("img/bgAlert.png");
+}
+
+.balaoDeDialogo {
+  -fx-background-color: #2731a5;
+}
+
+.notificacaoLabel {
+  /* -fx-background-color: #f5e55a; */
+}
+
+.buttonConversas {
+  -fx-background-image: url("img/buttonConversa.png");
+}
+
+.buttonConversas:hover {
+  -fx-background-image: url("img/buttonConversaHover.png");
+}
+
+.buttonConversas:pressed {
+  -fx-background-image: url("img/buttonConversaPressed.png");
+}
+
+.buttonAddConversas {
+  -fx-background-image: url("img/buttonAddConversa.png");
+}
+
+.buttonAddConversas:hover {
+  -fx-background-image: url("img/buttonAddConversaHover.png");
+}
+
+.buttonAddConversas:pressed {
+  -fx-background-image: url("img/buttonAddConversaPressed.png");
+}
+
+.paneUsuarios {
+  -fx-background-image: url("img/bgGrupos.png");
+}
+
+.scroll-pane {
+  -fx-background-color: transparent;
+  -fx-padding: 0;
+}
+.scroll-pane > .viewport {
+  -fx-background-color: transparent;
+}
+
+.scroll-bar .increment-button,
+.scroll-bar .decrement-button {
+  -fx-background-color: transparent;
+  -fx-padding: 0;
+  -fx-pref-height: 0;
+}
+.scroll-bar .increment-arrow,
+.scroll-bar .decrement-arrow {
+  -fx-shape: " ";
+  -fx-padding: 0;
+}
+
+.scroll-bar:vertical .track {
+  -fx-background-color: #f0f0f0;
+  -fx-background-radius: 0;
+  -fx-border-color: #d0d0d0;
+  -fx-border-width: 0 0 0 1px;
+}
+
+.scroll-bar:vertical .thumb {
+  -fx-background-color: #bbbbbb;
+  -fx-background-radius: 0;
+  -fx-background-insets: 2px;
+}
+
+.scroll-bar:vertical .thumb:hover {
+  -fx-background-color: #999999;
+}
+
+.scroll-bar:vertical .thumb:pressed {
+  -fx-background-color: #777777;
+}
