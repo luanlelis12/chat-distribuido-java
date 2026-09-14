@@ -2,7 +2,7 @@
 * Autor............: Luan Alves Lelis Costa
 * Matricula........: 202310352
 * Inicio...........: 15/06/2026
-* Ultima alteracao.: 1/07/2026
+* Ultima alteracao.: 14/09/2026
 * Nome.............: menuInicialController.java
 * Funcao...........: Gerencia a interface do menuInicial e comunica com o cliente.java para criar o cliente
 *******************************************************************/
@@ -190,9 +190,9 @@ public class menuInicialController implements Initializable {
 
   /*
    * Metodo: descobrirServidor
-   * Funcao: Envia um pacote na rede e devolve o IP de quem responder
-   * Parametros:
-   * Retorno: void
+   * Funcao: Envia um pacote UDP em broadcast para localizar o servidor na rede
+   * Parametros: nenhum
+   * Retorno: String (O endereço IP do servidor)
    */
   private String descobrirServidor() {
     System.out.println("CLIENTE - Procurando servidor na rede local...");
@@ -203,22 +203,21 @@ public class menuInicialController implements Initializable {
       byte[] dados = "DISCOVER".getBytes();
 
       java.net.DatagramPacket pacoteEnvio = new java.net.DatagramPacket(dados, dados.length,
-          java.net.InetAddress.getByName("255.255.255.255"), 8080);
+          java.net.InetAddress.getByName("255.255.255.255"), 8888);
       socket.send(pacoteEnvio);
 
       byte[] bufferResposta = new byte[1024];
       java.net.DatagramPacket pacoteResposta = new java.net.DatagramPacket(bufferResposta, bufferResposta.length);
-
       socket.receive(pacoteResposta);
-
+      
       String resposta = new String(pacoteResposta.getData(), 0, pacoteResposta.getLength()).trim();
-      if (resposta.equals("DISCOVER_OK")) {
+      if (resposta.equals("IP")) {
         String ipEncontrado = pacoteResposta.getAddress().getHostAddress();
         System.out.println("CLIENTE - Servidor encontrado no IP: " + ipEncontrado);
         return ipEncontrado;
       } // fim do if
     } catch (Exception e) {
-      System.out.println("CLIENTE - Servidor nao encontrado (Timeout).");
+      System.out.println("CLIENTE - Servidor nao encontrado (Timeout). ");
     } // fim do try-catch
     return null;
   } // fim do metodo descobrirServidor
