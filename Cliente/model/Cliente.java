@@ -6,7 +6,7 @@
 * Nome.............: Cliente.java
 * Funcao...........: Gerencia as apdus e a comunicacao com o servidor
 *******************************************************************/
-package model;
+package Model;
 
 import java.io.ByteArrayInputStream;
 import java.io.ObjectInputStream;
@@ -17,11 +17,12 @@ import java.net.InetAddress;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.Arrays;
+
+import Controller.clienteController;
+
 import java.nio.charset.StandardCharsets;
 
 import Protocol.APDU;
-
-import controller.clienteController;
 
 public class Cliente extends Thread {
 

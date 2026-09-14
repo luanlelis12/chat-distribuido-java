@@ -6,12 +6,13 @@
 * Nome.............: listarConversasController.java
 * Funcao...........: Gerencia a interface de lista membros de um grupo ou listar os grupos no servidor
 *******************************************************************/
-package controller;
+package Controller;
 
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.ResourceBundle;
 
+import Util.processadorTexto;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
@@ -25,7 +26,6 @@ import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
-import util.processadorTexto;
 
 public class listarConversasController implements Initializable {
 

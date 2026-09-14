@@ -6,7 +6,7 @@
 * Nome.............: processadorTexto.java
 * Funcao...........: Classe para gerenciar o texto, inserindo ou tirando escapes e flags
 *******************************************************************/
-package util;
+package Util;
 
 public class processadorTexto {
   

@@ -7,7 +7,7 @@
 * Funcao...........: 
 *******************************************************************/
 
-import model.Servidor;
+import Model.Servidor;
 
 public class Principal {
 

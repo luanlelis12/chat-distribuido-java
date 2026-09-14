@@ -7,6 +7,12 @@
 * Funcao...........: 
 *******************************************************************/
 
+import Controller.alertController;
+import Controller.clienteController;
+import Controller.entrarConversaController;
+import Controller.listarConversasController;
+import Controller.menuInicialController;
+import Controller.sobreController;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.fxml.FXMLLoader;
@@ -14,13 +20,6 @@ import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
-
-import controller.alertController;
-import controller.clienteController;
-import controller.entrarConversaController;
-import controller.listarConversasController;
-import controller.menuInicialController;
-import controller.sobreController;
 
 public class Principal extends Application {
 

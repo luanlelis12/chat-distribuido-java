@@ -6,7 +6,7 @@
 * Nome.............: entrarConversaController.java
 * Funcao...........: Gerencia a interface e o comunica para o clienteController sobre a criacao de grupo ou criar uma conversa privada com um usuario
 *******************************************************************/
-package controller;
+package Controller;
 
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;

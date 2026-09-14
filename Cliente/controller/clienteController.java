@@ -6,7 +6,7 @@
 * Nome.............: clienteController.java
 * Funcao...........: Faz a ponte de comunicacao entre a interface e a classe cliente
 *******************************************************************/
-package controller;
+package Controller;
 
 import java.io.IOException;
 import java.net.URL;
@@ -14,6 +14,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.ResourceBundle;
 
+import Model.Cliente;
+import Model.Conversa;
+import Util.processadorTexto;
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
@@ -42,9 +45,6 @@ import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 import javafx.util.Pair;
-import model.Cliente;
-import model.Conversa;
-import util.processadorTexto;
 
 public class clienteController implements Initializable {
 

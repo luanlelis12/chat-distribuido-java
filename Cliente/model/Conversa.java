@@ -6,7 +6,7 @@
 * Nome.............: Conversa.java
 * Funcao...........: Classe para gerenciar conversas em grupo ou entre usuarios
 *******************************************************************/
-package model;
+package Model;
 
 import javafx.scene.control.Label;
 import javafx.scene.image.ImageView;

@@ -7,9 +7,8 @@
 * Funcao...........: Gerenciar os grupos, usuarios e as apdus recebidas
 *******************************************************************/
 
-package model;
+package Model;
 
-import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.ByteArrayInputStream;
@@ -19,12 +18,12 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Semaphore;
-import protocol.APDU;
+
+import Protocol.APDU;
 
 public class Servidor extends Thread {
 
@@ -75,7 +74,7 @@ public class Servidor extends Thread {
       } catch (Exception e) {
         System.out.println("SERVIDOR DESCOBERTA - Erro na descoberta: " + e.getMessage());
       } // fim do try-catch
-    });
+    }).start();
 
     // THREAD TCP (Controle)
     new Thread(() -> {

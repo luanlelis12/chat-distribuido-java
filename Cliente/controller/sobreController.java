@@ -6,7 +6,7 @@
 * Nome.............: sobreController.java
 * Funcao...........: Gerencia a interface sobre do trabalho
 *******************************************************************/
-package controller;
+package Controller;
 
 import java.net.URL;
 import java.util.ResourceBundle;

@@ -6,12 +6,14 @@
 * Nome.............: menuInicialController.java
 * Funcao...........: Gerencia a interface do menuInicial e comunica com o cliente.java para criar o cliente
 *******************************************************************/
-package controller;
+package Controller;
 
 import java.io.IOException;
 import java.net.URL;
 import java.util.ResourceBundle;
 
+import Network.Descobridor;
+import Util.processadorTexto;
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
@@ -25,8 +27,6 @@ import javafx.scene.layout.Pane;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
-import network.Descobridor;
-import util.processadorTexto;
 
 public class menuInicialController implements Initializable {
 

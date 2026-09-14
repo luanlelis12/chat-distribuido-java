@@ -6,7 +6,7 @@
 * Nome.............: alertController.java
 * Funcao...........: Gerencia a interface dos alerts
 *******************************************************************/
-package controller;
+package Controller;
 
 import java.net.URL;
 import java.util.ResourceBundle;

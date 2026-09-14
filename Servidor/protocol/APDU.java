@@ -22,7 +22,7 @@
 *   CONFIRM - Confirmacao de recebimento/leitura (ticks do zap)
 *************************************************************** */
 
-package protocol;
+package Protocol;
 
 import java.io.Serializable;
 import java.util.UUID;

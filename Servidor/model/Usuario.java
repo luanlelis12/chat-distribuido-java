@@ -7,7 +7,7 @@
 * Funcao...........: 
 *******************************************************************/
 
-package model;
+package Model;
 
 import java.net.InetAddress;
 
