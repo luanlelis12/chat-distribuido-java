@@ -99,7 +99,7 @@ public class listarConversasController implements Initializable {
    */
   public void adicionarGruposOuMembros(String nomeConversa) {
     try {
-      FXMLLoader loader = new FXMLLoader(getClass().getResource("/view/grupoButton.fxml"));
+      FXMLLoader loader = new FXMLLoader(getClass().getResource("/View/grupoButton.fxml"));
       AnchorPane itemConversa = loader.load();
 
       ImageView icone = (ImageView) itemConversa.lookup("#iconeConversa");
@@ -119,7 +119,7 @@ public class listarConversasController implements Initializable {
 
       // Se for um usuario inicializa uma imagem diferente
       if (tipoConversa.equals(clienteController.PRIVADO)) {
-        String caminhoImagem = "/view/img/iconPriv.png";
+        String caminhoImagem = "/View/img/iconPriv.png";
 
         try {
           Image novaImagem = new Image(getClass().getResourceAsStream(caminhoImagem));

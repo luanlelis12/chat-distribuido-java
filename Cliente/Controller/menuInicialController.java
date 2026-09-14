@@ -70,7 +70,7 @@ public class menuInicialController implements Initializable {
 
     if (nomeCliente == null || nomeCliente.trim().isEmpty()) { // verifica se o nome eh vazio
       try {
-        FXMLLoader loader = new FXMLLoader(getClass().getResource("/view/alert.fxml"));
+        FXMLLoader loader = new FXMLLoader(getClass().getResource("/View/alert.fxml"));
         Parent root = loader.load();
 
         alertController controladorDoAlerta = loader.getController();
@@ -95,7 +95,7 @@ public class menuInicialController implements Initializable {
 
     if (ipServidor == null) { // se o servidor estiver fora de ar emitir alert
       try {
-        FXMLLoader loader = new FXMLLoader(getClass().getResource("/view/alert.fxml"));
+        FXMLLoader loader = new FXMLLoader(getClass().getResource("/View/alert.fxml"));
         Parent root = loader.load();
 
         alertController controladorDoAlerta = loader.getController();
@@ -117,7 +117,7 @@ public class menuInicialController implements Initializable {
 
     if (!sucesso) {
       try {
-        FXMLLoader loader = new FXMLLoader(getClass().getResource("/view/alert.fxml"));
+        FXMLLoader loader = new FXMLLoader(getClass().getResource("/View/alert.fxml"));
         Parent root = loader.load();
 
         alertController controladorDoAlerta = loader.getController();
@@ -138,7 +138,7 @@ public class menuInicialController implements Initializable {
     System.out.println("CLIENTE - criando usuario " + nomeCliente + ".");
 
     try {
-      Parent novaRaiz = FXMLLoader.load(getClass().getResource("/view/chat.fxml"));
+      Parent novaRaiz = FXMLLoader.load(getClass().getResource("/View/chat.fxml"));
       Scene novaCena = new Scene(novaRaiz);
 
       Stage primaryStage = (Stage) ((Node) event.getSource()).getScene().getWindow();
@@ -172,7 +172,7 @@ public class menuInicialController implements Initializable {
    */
   public void abrirSobre(ActionEvent event) {
     try {
-      FXMLLoader loader = new FXMLLoader(getClass().getResource("/view/sobre.fxml"));
+      FXMLLoader loader = new FXMLLoader(getClass().getResource("/View/sobre.fxml"));
       Parent root = loader.load();
 
       Stage janelaSobre = new Stage();

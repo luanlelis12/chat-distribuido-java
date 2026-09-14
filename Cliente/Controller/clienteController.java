@@ -334,7 +334,7 @@ public class clienteController implements Initializable {
     // Alert para impedir do usuario criar grupo com nome vazio
     if (nomeGrupoProcessado == null || nomeGrupoProcessado.trim().isEmpty()) {
       try {
-        FXMLLoader loader = new FXMLLoader(getClass().getResource("/view/alert.fxml"));
+        FXMLLoader loader = new FXMLLoader(getClass().getResource("/View/alert.fxml"));
         Parent root = loader.load();
 
         alertController controladorDoAlerta = loader.getController();
@@ -360,7 +360,7 @@ public class clienteController implements Initializable {
     // Alert para impedir do usuario criar grupo com nome repetido
     if (listaConversas.containsKey(grupo)) {
       try {
-        FXMLLoader loader = new FXMLLoader(getClass().getResource("/view/alert.fxml"));
+        FXMLLoader loader = new FXMLLoader(getClass().getResource("/View/alert.fxml"));
         Parent root = loader.load();
 
         alertController controladorDoAlerta = loader.getController();
@@ -449,7 +449,7 @@ public class clienteController implements Initializable {
     // impede de criar conversa com alguem de nome vazio
     if (nomeUsuarioProcessado == null || nomeUsuarioProcessado.trim().isEmpty()) {
       try {
-        FXMLLoader loader = new FXMLLoader(getClass().getResource("/view/alert.fxml"));
+        FXMLLoader loader = new FXMLLoader(getClass().getResource("/View/alert.fxml"));
         Parent root = loader.load();
 
         alertController controladorDoAlerta = loader.getController();
@@ -472,7 +472,7 @@ public class clienteController implements Initializable {
 
     if (nomeUsuario.equals(cliente.getNomeCliente())) {
       try {
-        FXMLLoader loader = new FXMLLoader(getClass().getResource("/view/alert.fxml"));
+        FXMLLoader loader = new FXMLLoader(getClass().getResource("/View/alert.fxml"));
         Parent root = loader.load();
 
         alertController controladorDoAlerta = loader.getController();
@@ -509,7 +509,7 @@ public class clienteController implements Initializable {
       System.out.println("CLIENTE - O usuario " + nomeUsuario + " nao existe ou esta offline.");
 
       try {
-        FXMLLoader loader = new FXMLLoader(getClass().getResource("/view/alert.fxml"));
+        FXMLLoader loader = new FXMLLoader(getClass().getResource("/View/alert.fxml"));
         Parent root = loader.load();
 
         alertController controladorDoAlerta = loader.getController();
@@ -539,7 +539,7 @@ public class clienteController implements Initializable {
    */
   public void adicionarConversaNaTela(String nomeConversa, String tipoConversa) {
     try {
-      FXMLLoader loader = new FXMLLoader(getClass().getResource("/view/grupoButton.fxml"));
+      FXMLLoader loader = new FXMLLoader(getClass().getResource("/View/grupoButton.fxml"));
       AnchorPane itemConversa = loader.load();
 
       ImageView icone = (ImageView) itemConversa.lookup("#iconeConversa");
@@ -564,7 +564,7 @@ public class clienteController implements Initializable {
       } // fim do if
 
       if (tipoConversa.equals(PRIVADO)) {
-        String caminhoImagem = "/view/img/iconPriv.png";
+        String caminhoImagem = "/View/img/iconPriv.png";
 
         try {
           Image novaImagem = new Image(getClass().getResourceAsStream(caminhoImagem));
@@ -678,7 +678,7 @@ public class clienteController implements Initializable {
    */
   public void abrirTelaEntrarConversa() {
     try {
-      FXMLLoader loader = new FXMLLoader(getClass().getResource("/view/entrarConversa.fxml"));
+      FXMLLoader loader = new FXMLLoader(getClass().getResource("/View/entrarConversa.fxml"));
       Parent root = loader.load();
 
       entrarConversaController controladorPopup = loader.getController();
@@ -731,7 +731,7 @@ public class clienteController implements Initializable {
   public static void exibirListaConversas(ArrayList<String> itens, String tipo) {
     Platform.runLater(() -> {
       try {
-        FXMLLoader loader = new FXMLLoader(instancia.getClass().getResource("/view/usuariosPane.fxml"));
+        FXMLLoader loader = new FXMLLoader(instancia.getClass().getResource("/View/usuariosPane.fxml"));
         Parent root = loader.load();
 
         listarConversasController controladorPopup = loader.getController();
