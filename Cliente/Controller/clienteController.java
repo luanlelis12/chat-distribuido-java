@@ -2,7 +2,7 @@
 * Autor............: Luan Alves Lelis Costa
 * Matricula........: 202310352
 * Inicio...........: 12/06/2026
-* Ultima alteracao.: 01/07/2026
+* Ultima alteracao.: 15/09/2026
 * Nome.............: clienteController.java
 * Funcao...........: Faz a ponte de comunicacao entre a interface e a classe cliente
 *******************************************************************/
@@ -33,6 +33,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextArea;
+import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
@@ -70,6 +71,8 @@ public class clienteController implements Initializable {
   private ToggleGroup tipoDeConversa;
   @FXML
   private Button abrirListaMembrosButton;
+  @FXML
+  private TextField userBlock;
 
   private double xOffset = 0;
   private double yOffset = 0;
@@ -795,4 +798,37 @@ public class clienteController implements Initializable {
     janela.setIconified(true);
   } // fim do metodo minimizarTela
 
+  /*
+   * Metodo: bloquearUsuario
+   * Funcao: Bloqueia um usuario impedindo dele enviar ou receber mensagens relacionadas ao cliente
+   * Parametros: 
+   * Retorno: void
+   */
+  public void bloquearUsuario() {
+    String usuario = userBlock.getText();
+
+    if (cliente.bloquearUsuario(usuario)) {
+      System.out.println("CLIENTE - Usuario "+ usuario +" foi bloqueado!");
+    } else {
+      System.out.println("CLIENTE - Usuario "+ usuario +" não foi bloqueado!");
+    } // fim do metodo
+
+  } // fim do metodo bloquearUsuario
+
+  /*
+   * Metodo: desbloquearUsuario
+   * Funcao: Desbloqueia um usuario, liberando ele dele enviar ou receber mensagens relacionadas ao cliente
+   * Parametros: 
+   * Retorno: void
+   */
+  public void desbloquearUsuario() {
+    String usuario = userBlock.getText();
+
+    if (cliente.desbloquearUsuario(usuario)) {
+      System.out.println("CLIENTE - Usuario "+ usuario +" foi desbloqueado!");
+    } else {
+      System.out.println("CLIENTE - Usuario "+ usuario +" nao foi desbloqueado!");
+    } // fim do metodo
+
+  } // fim do metodo desbloquearUsuario
 }

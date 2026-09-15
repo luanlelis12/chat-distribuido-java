@@ -27,7 +27,7 @@ public class Principal extends Application {
   public void start(Stage primaryStage) throws Exception {
 
     // Carrega o arquivo FXML da tela principal
-    FXMLLoader loader = new FXMLLoader(getClass().getResource("view/menuInicial.fxml"));
+    FXMLLoader loader = new FXMLLoader(getClass().getResource("View/menuInicial.fxml"));
     Parent root = loader.load();
 
     // Configura a cena

@@ -5,6 +5,7 @@
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.ScrollPane?>
 <?import javafx.scene.control.TextArea?>
+<?import javafx.scene.control.TextField?>
 <?import javafx.scene.layout.AnchorPane?>
 <?import javafx.scene.layout.Pane?>
 <?import javafx.scene.layout.VBox?>
@@ -51,6 +52,8 @@
                   <Font name="Arial" size="30.0" />
                </font>
             </Label>
+            <Button fx:id="bloquear" layoutX="854.0" layoutY="335.0" mnemonicParsing="false" onAction="#bloquearUsuario" text="Button" />
+            <TextField fx:id="userBlock" layoutX="811.0" layoutY="374.0" />
          </children>
       </AnchorPane>
       <Pane fx:id="barraSuperior" prefHeight="60.0" prefWidth="1220.0">

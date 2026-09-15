@@ -2,7 +2,7 @@
 * Autor............: Luan Alves Lelis Costa
 * Matricula........: 202310352
 * Inicio...........: 12/06/2026
-* Ultima alteracao.: 14/09/2026
+* Ultima alteracao.: 15/09/2026
 * Nome.............: Servidor.java
 * Funcao...........: Gerenciar os grupos, usuarios e as apdus recebidas
 *******************************************************************/
@@ -143,6 +143,7 @@ public class Servidor extends Thread {
    */
   public void processarApdu(APDU apdu, InetAddress ipCliente, ObjectOutputStream saida) {
     String operacao = apdu.getOperacao().toUpperCase();
+    System.out.println(operacao);
 
     switch (operacao) {
       case "REGISTER":
@@ -220,10 +221,9 @@ public class Servidor extends Thread {
 
       case "BLOCK":
         try {
-          if (saida != null) {
-            saida.writeObject("OK: " + apdu.getDestinatario() + " foi bloqueado.");
-            saida.flush();
-          }
+          mutex.acquire();
+          bloquearUsuario(apdu, apdu.getNomeUsuario(), apdu.getDestinatario(), saida);
+          mutex.release();
         } catch (Exception e) {}
         break;
 
@@ -263,25 +263,30 @@ public class Servidor extends Thread {
 
   /*
    * Metodo: inserirNoGrupo
-   * Funcao: Adiciona o usuario a um grupo especifico e retorna a confirmacao via TCP
+   * Funcao: Adiciona o usuario a um grupo especifico utilizando a instancia global de usuariosOnline
    * Parametros: nomeGrupo = nome do grupo, nomeUsuario = nome do cliente, ipCliente = IP do cliente, portaUDP = porta UDP do cliente, saida = fluxo de saida TCP
    * Retorno: void
    */
   public void inserirNoGrupo(String nomeGrupo, String nomeUsuario, InetAddress ipCliente, int portaUDP, ObjectOutputStream saida) {
-    Usuario novoUsuario = new Usuario(ipCliente, nomeUsuario, portaUDP);
+    
+    Usuario usuarioReal = usuariosOnline.get(nomeUsuario);
     boolean sucesso = true;
 
-    if (grupos.containsKey(nomeGrupo)) {
-      if (!grupos.get(nomeGrupo).contains(novoUsuario)) {
-        grupos.get(nomeGrupo).add(novoUsuario);
+    if (usuarioReal != null) {
+      if (grupos.containsKey(nomeGrupo)) {
+        if (!grupos.get(nomeGrupo).contains(usuarioReal)) {
+          grupos.get(nomeGrupo).add(usuarioReal);
+        } else {
+          sucesso = false;
+        } // fim do if
       } else {
-        sucesso = false;
+        ArrayList<Usuario> listaUsuario = new ArrayList<>();
+        listaUsuario.add(usuarioReal);
+        grupos.put(nomeGrupo, listaUsuario);
       } // fim do if
     } else {
-      ArrayList<Usuario> listaUsuario = new ArrayList<>();
-      listaUsuario.add(novoUsuario);
-      grupos.put(nomeGrupo, listaUsuario);
-    } // fim do if
+      sucesso = false;
+    } //fim do if
 
     try {
       if (saida != null) {
@@ -302,19 +307,12 @@ public class Servidor extends Thread {
     if (grupos.containsKey(nomeGrupo)) {
       ArrayList<Usuario> listaDeUsuarios = grupos.get(nomeGrupo);
       
-      for (Usuario usuario : listaDeUsuarios) {
-        if (usuario.getNome().equals(nomeUsuario)) {
-          listaDeUsuarios.remove(usuario);
-          removido = true;
-          break;
-        } // fim do if
-      } // fim do for
-      
+      removido = listaDeUsuarios.removeIf(usuario -> usuario.getNome().equals(nomeUsuario));
+             
       if (listaDeUsuarios.isEmpty()) {
         grupos.remove(nomeGrupo);
       } // fim do if
-    } // fim do if
-
+    }
     try {
       if (saida != null) {
         saida.writeObject(removido ? "OK: Saiu do grupo com sucesso" : "ERRO: Usuario nao encontrado no grupo.");
@@ -396,10 +394,13 @@ public class Servidor extends Thread {
    */
   public void enviarMensagem(APDU apdu, String nomeGrupo, String nomeUsuarioRemetente) {
     if (!grupos.containsKey(nomeGrupo)) return;
+    Usuario usuarioRemetente = usuariosOnline.get(nomeUsuarioRemetente);
     ArrayList<Usuario> listaDeUsuarios = grupos.get(nomeGrupo);
-    
+         
     for (Usuario usuario : listaDeUsuarios) {
-      if (!usuario.getNome().equals(nomeUsuarioRemetente)) {
+      if (!usuario.getNome().equals(nomeUsuarioRemetente) && 
+          usuarioRemetente != null && !usuarioRemetente.getBloqueados().contains(usuario.getNome()) && 
+          !usuario.getBloqueados().contains(nomeUsuarioRemetente)) {
         enviarObjetoUDP(apdu, usuario.getIp(), usuario.getPorta());
       } // fim do if
     } // fim do for
@@ -413,7 +414,11 @@ public class Servidor extends Thread {
    */
   public void enviarMensagemPrivado(APDU apdu, String nomeUsuarioDestino, String nomeUsuarioRemetente) {
     Usuario usuarioDestino = usuariosOnline.get(nomeUsuarioDestino);
-    if (usuarioDestino != null) {
+    Usuario usuarioRemetente = usuariosOnline.get(nomeUsuarioRemetente);
+    
+    if (usuarioDestino != null && usuarioRemetente != null &&
+        !usuarioDestino.getBloqueados().contains(nomeUsuarioRemetente) && 
+        !usuarioRemetente.getBloqueados().contains(nomeUsuarioDestino)) {
       enviarObjetoUDP(apdu, usuarioDestino.getIp(), usuarioDestino.getPorta());
     } // fim do if
   } // fim do metodo enviarMensagemPrivado
@@ -452,21 +457,50 @@ public class Servidor extends Thread {
     } // fim do try-catch
   } // fim do metodo enviarObjetoUDP
 
-  
   /*
    * Metodo: bloquearUsuario
-   * Funcao: Insere um usuario na lista de contatos bloqueados do cliente
-   * Parametros: apdu = APDU com a mensagem, nomeUsuarioBloqueador = usuario que solicitou bloqueo, nomeUsuarioBloqueado = usuario que vai ser bloqueado
+   * Funcao: Insere um usuario na lista de contatos bloqueados do cliente de forma segura
+   * Parametros: apdu = APDU de bloqueio, nomeUsuario = quem solicitou, nomeUsuarioBloqueado = quem vai ser bloqueado, saida = fluxo TCP
    * Retorno: void
    */
-  public void bloquearUsuario(APDU apdu, String nomeUsuarioBloqueador, String nomeUsuarioBloqueado) {
+  public void bloquearUsuario(APDU apdu, String nomeUsuario, String nomeUsuarioBloqueado, ObjectOutputStream saida) {
+    boolean bloqueado = false;
+    Usuario usuario = usuariosOnline.get(nomeUsuario);
     
-    if (!usuariosBloqueados.containsKey(nomeUsuarioBloqueador)) {
-      usuariosBloqueados.put(nomeUsuarioBloqueador, new ArrayList<String>());
+    if (usuario != null && nomeUsuarioBloqueado != null && !nomeUsuarioBloqueado.trim().isEmpty()) {
+      usuario.addBloqueados(nomeUsuarioBloqueado.trim());
+      bloqueado = true;
     } // fim do if
-
-    usuariosBloqueados.get(nomeUsuarioBloqueador).add(nomeUsuarioBloqueado);
-
+    
+    try {
+      if (saida != null) {
+        saida.writeObject(bloqueado ? "OK: Bloqueou o usuario com sucesso" : "ERRO: Falha ao bloquear o usuario.");
+        saida.flush();
+      } // fim do if
+    } catch (Exception e) {}
   } // fim do metodo bloquearUsuario
+  
+  /*
+   * Metodo: desbloquearUsuario
+   * Funcao: Remove um usuario da lista de contatos bloqueados do cliente
+   * Parametros: apdu = APDU de desbloqueio, nomeUsuario = quem solicitou, nomeUsuarioBloqueado = alvo, saida = fluxo TCP
+   * Retorno: void
+   */
+  public void desbloquearUsuario(APDU apdu, String nomeUsuario, String nomeUsuarioBloqueado, ObjectOutputStream saida) {
+    boolean desbloqueado = false;
+    Usuario usuario = usuariosOnline.get(nomeUsuario);
+    
+    if (usuario != null && nomeUsuarioBloqueado != null && !nomeUsuarioBloqueado.trim().isEmpty()) {
+      usuario.getBloqueados().remove(nomeUsuarioBloqueado.trim());
+      desbloqueado = true;
+    } // fim do if
+    
+    try {
+      if (saida != null) {
+        saida.writeObject(desbloqueado ? "OK: Desbloqueou o usuario com sucesso" : "ERRO: Falha ao desbloquear o usuario.");
+        saida.flush();
+      } // fim do if
+    } catch (Exception e) {}
+  } // fim do metodo desbloquearUsuario
 
 }

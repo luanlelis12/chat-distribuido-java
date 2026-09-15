@@ -2,7 +2,7 @@
 * Autor............: Luan Alves Lelis Costa
 * Matricula........: 202310352
 * Inicio...........: 12/06/2026
-* Ultima alteracao.: 14/09/2026
+* Ultima alteracao.: 15/09/2026
 * Nome.............: Cliente.java
 * Funcao...........: Gerencia as apdus e a comunicacao com o servidor
 *******************************************************************/
@@ -450,6 +450,87 @@ public class Cliente extends Thread {
       return false;
     } // fim do try-catch
   } // fim do metodo verificarUsuario
+
+  /*
+   * Metodo: bloquearUsuario
+   * Funcao: 
+   * Parametros:
+   * Retorno: void
+   */
+  public boolean bloquearUsuario(String usuarioBloqueado) {
+    try {
+      Socket socketCliente = new Socket(ipServidor, PORTA_SERVIDOR_TCP);
+      socketCliente.setSoTimeout(5000);
+
+      ObjectOutputStream saida = new ObjectOutputStream(socketCliente.getOutputStream());
+      saida.flush();
+      ObjectInputStream entrada = new ObjectInputStream(socketCliente.getInputStream());
+
+      // Instancia a APDU do colega para o LEAVE
+      APDU apdu = new APDU("BLOCK", null, this.nomeCliente, null, this.portaClienteUDP, usuarioBloqueado);
+
+      System.out.println("CLIENTE - Enviando APDU BLOCK para o servidor...");
+      saida.writeObject(apdu);
+      saida.flush();
+
+      String resposta = (String) entrada.readObject();
+      socketCliente.close();
+      
+      if (resposta != null && resposta.startsWith("OK: ")) {
+        return true;
+      } // fim do if
+
+      return false;
+
+    } catch (java.net.SocketTimeoutException e) {
+      System.out.println("CLIENTE - ERRO: Tempo limite excedido. O Servidor nao respondeu ao BLOCK.");
+      return false;
+    } catch (Exception e) {
+      System.out.println("CLIENTE - ERRO: Falha na conexao com o servidor!");
+      return false;
+    } // fim do try-catch
+  } // fim do metodo bloquearUsuario
+
+  
+  /*
+   * Metodo: desbloquearUsuario
+   * Funcao: 
+   * Parametros:
+   * Retorno: void
+   */
+  public boolean desbloquearUsuario(String usuarioDesbloqueado) {
+    try {
+      Socket socketCliente = new Socket(ipServidor, PORTA_SERVIDOR_TCP);
+      socketCliente.setSoTimeout(5000);
+
+      ObjectOutputStream saida = new ObjectOutputStream(socketCliente.getOutputStream());
+      saida.flush();
+      ObjectInputStream entrada = new ObjectInputStream(socketCliente.getInputStream());
+
+      // Instancia a APDU do colega para o LEAVE
+      APDU apdu = new APDU("UNBLOCK", null, this.nomeCliente, null, this.portaClienteUDP, usuarioDesbloqueado);
+
+      System.out.println("CLIENTE - Enviando APDU UNBLOCK para o servidor...");
+      saida.writeObject(apdu);
+      saida.flush();
+
+      String resposta = (String) entrada.readObject();
+      socketCliente.close();
+      
+      if (resposta != null && resposta.startsWith("OK: ")) {
+        return true;
+      } // fim do if
+
+      return false;
+
+    } catch (java.net.SocketTimeoutException e) {
+      System.out.println("CLIENTE - ERRO: Tempo limite excedido. O Servidor nao respondeu ao UNBLOCK.");
+      return false;
+    } catch (Exception e) {
+      System.out.println("CLIENTE - ERRO: Falha na conexao com o servidor!");
+      return false;
+    } // fim do try-catch
+  } // fim do metodo desbloquearUsuario
 
   public void desligarCliente() {
     endpointCliente.close();
