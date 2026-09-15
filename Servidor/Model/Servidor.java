@@ -109,12 +109,12 @@ public class Servidor extends Thread {
 
     // THREAD UDP (Mensagens)
     new Thread(() -> {
-      try {
-
-        System.out.println("SERVIDOR UDP - esperando na porta " + PORTA_UDP);
-
-        while (true) {
-
+      
+      System.out.println("SERVIDOR UDP - esperando na porta " + PORTA_UDP);
+      
+      while (true) {
+        
+        try {
           byte[] dadosEntrada = new byte[8192];
           DatagramPacket pacoteRecebido = new DatagramPacket(dadosEntrada, dadosEntrada.length);
           endpointServidor.receive(pacoteRecebido);
@@ -126,11 +126,10 @@ public class Servidor extends Thread {
           new Thread(() -> {
             processarApdu(apduRecebida, pacoteRecebido.getAddress(), null);
           }).start();
-
-        } // fim do while
-      } catch (Exception e) {
-        System.out.println("SERVIDOR UDP - ERRO!");
-      } // fim do try-catch
+        } catch (Exception e) {
+          System.out.println("SERVIDOR UDP - Pacote ignorado (Nao e um objeto APDU valido).");
+        } // fim do try-catch
+      } // fim do while
     }).start();
 
   } // fim do metodo start
@@ -452,5 +451,22 @@ public class Servidor extends Thread {
       System.out.println("SERVIDOR UDP - ERRO ao encaminhar objeto.");
     } // fim do try-catch
   } // fim do metodo enviarObjetoUDP
+
+  
+  /*
+   * Metodo: bloquearUsuario
+   * Funcao: Insere um usuario na lista de contatos bloqueados do cliente
+   * Parametros: apdu = APDU com a mensagem, nomeUsuarioBloqueador = usuario que solicitou bloqueo, nomeUsuarioBloqueado = usuario que vai ser bloqueado
+   * Retorno: void
+   */
+  public void bloquearUsuario(APDU apdu, String nomeUsuarioBloqueador, String nomeUsuarioBloqueado) {
+    
+    if (!usuariosBloqueados.containsKey(nomeUsuarioBloqueador)) {
+      usuariosBloqueados.put(nomeUsuarioBloqueador, new ArrayList<String>());
+    } // fim do if
+
+    usuariosBloqueados.get(nomeUsuarioBloqueador).add(nomeUsuarioBloqueado);
+
+  } // fim do metodo bloquearUsuario
 
 }

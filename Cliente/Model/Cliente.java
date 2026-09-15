@@ -9,6 +9,7 @@
 package Model;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.DatagramPacket;
@@ -16,7 +17,6 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.util.ArrayList;
-import java.util.Arrays;
 
 import Controller.clienteController;
 
@@ -100,43 +100,27 @@ public class Cliente extends Thread {
    * Parametros: apduRecebida = objeto APDU deserializado recebido do servidor
    * Retorno: void
    */
-  private void processarApdu(APDU apduRecebida) {
-    String operacao = apduRecebida.getOperacao();
-
+  /*
+   * Metodo: processarApdu
+   * Funcao: processa a APDU (Objeto) recebida do servidor via UDP
+   * Parametros: apdu = pacote recebido formatado
+   * Retorno: void
+   */
+  private void processarApdu(APDU apdu) {
+    String operacao = apdu.getOperacao();
     switch (operacao) {
       case "SEND":
       case "SENDVU":
-        try {
-          String grupoDestino = apduRecebida.getNomeGrupo();
-          String usuarioRemetente = apduRecebida.getNomeUsuario();
-          String mensagem = apduRecebida.getTextoMensagem();
-
-          clienteController.receberMensagem(mensagem, grupoDestino, usuarioRemetente, GRUPO);
-        } catch (Exception e) {
-          System.out.println("CLIENTE - ERRO: Nao foi possivel processar a APDU SEND.");
-        }
+        Controller.clienteController.receberMensagem(apdu.getTextoMensagem(), apdu.getNomeGrupo(), apdu.getNomeUsuario(), GRUPO);
         break;
-
       case "SENDPVT":
-        try {
-          String usuarioRemetente = apduRecebida.getNomeUsuario();
-          String mensagem = apduRecebida.getTextoMensagem();
-
-          clienteController.receberMensagem(mensagem, usuarioRemetente, usuarioRemetente, PRIVADO);
-        } catch (Exception e) {
-          System.out.println("CLIENTE - ERRO: Nao foi possivel processar a APDU SENDPVT.");
-        }
+        Controller.clienteController.receberMensagem(apdu.getTextoMensagem(), apdu.getNomeUsuario(), apdu.getNomeUsuario(), PRIVADO);
         break;
-
       case "CONFIRM":
-        System.out.println("CLIENTE - Tick de confirmacao recebido: Status " + apduRecebida.getStatusRecebido());
+        System.out.println("CLIENTE - Recebeu confirmacao (Tick): MsgID " + apdu.getIdMensagem() + " Status " + apdu.getStatusRecebido());
         break;
-
-      default:
-        System.out.println("CLIENTE - AVISO: Operacao UDP desconhecida ou nao tratada: " + operacao);
-        break;
-    } // fim do switch-case
-  } // fim do metodo processarApdu
+    }
+  }
 
   /*
    * Metodo: entrarGrupo
@@ -213,51 +197,57 @@ public class Cliente extends Thread {
   } // fim do metodo sairGrupo
 
   /*
-   * Metodo: enviarMensagemPrivado
-   * Funcao: envia a apdu sendpvt ao servidor via UDP
-   * Parametros: usuarioDestino = usuario que o cliente quer mandar a mensagem,
-   * mensagem
+   * Metodo: enviarObjetoUDP
+   * Funcao: Serializa e envia uma APDU para o servidor (Evita repeticao de codigo)
+   * Parametros: apdu = objeto a ser enviado
    * Retorno: void
    */
-  public void enviarMensagemPrivado(String usuarioDestino, String mensagem) {
+  private void enviarObjetoUDP(APDU apdu) {
     try {
-      byte[] dadosEnviados = new byte[1024];
-
-      String apdu = new String("SENDPVT~~" + usuarioDestino + "~~" + nomeCliente + "~~" + mensagem + "\n");
-      dadosEnviados = apdu.getBytes(StandardCharsets.UTF_8);
-
-      System.out.println("CLIENTE - Enviando APDU SENDPVT para o servidor");
-      DatagramPacket datagramaEnviado = new DatagramPacket(dadosEnviados, dadosEnviados.length, ipServidor,
-          PORTA_SERVIDOR_UDP);
-      endpointCliente.send(datagramaEnviado);
+      ByteArrayOutputStream baos = new ByteArrayOutputStream();
+      ObjectOutputStream out = new ObjectOutputStream(baos);
+      out.writeObject(apdu);
+      out.flush();
+      byte[] dados = baos.toByteArray();
+      
+      DatagramPacket pacote = new DatagramPacket(dados, dados.length, ipServidor, PORTA_SERVIDOR_UDP);
+      endpointCliente.send(pacote);
     } catch (Exception e) {
-      System.out.println("CLIENTE - ERRO: Nao foi possivel enviar a mensagem no privado!");
-      e.printStackTrace();
-    } // fim try-catch
-  } // fim do metodo enviarMensagemPrivado
+      System.out.println("CLIENTE - ERRO ao encaminhar objeto via UDP.");
+    } // fim do try-catch
+  } // fim do metodo enviarObjetoUDP
 
   /*
    * Metodo: enviarMensagem
-   * Funcao: envia a apdu send ao servidor via UDP
-   * Parametros: grupo = grupo que o cliente quer mandar a mensagem, mensagem
+   * Funcao: Envia uma mensagem para o grupo utilizando o objeto APDU
+   * Parametros: grupo = nome do grupo alvo, mensagem = texto da mensagem
    * Retorno: void
    */
   public void enviarMensagem(String grupo, String mensagem) {
     try {
-      byte[] dadosEnviados = new byte[1024];
-
-      String apdu = new String("SEND~~" + grupo + "~~" + nomeCliente + "~~" + mensagem + "\n");
-      dadosEnviados = apdu.getBytes(StandardCharsets.UTF_8);
-
+      APDU apdu = new APDU("SEND", grupo, this.nomeCliente, mensagem, this.portaClienteUDP);
+      enviarObjetoUDP(apdu);
       System.out.println("CLIENTE - Enviando APDU SEND para o servidor");
-      DatagramPacket datagramaEnviado = new DatagramPacket(dadosEnviados, dadosEnviados.length, ipServidor,
-          PORTA_SERVIDOR_UDP);
-      endpointCliente.send(datagramaEnviado);
     } catch (Exception e) {
       System.out.println("CLIENTE - ERRO: Nao foi possivel enviar a mensagem!");
-      e.printStackTrace();
-    } // fim try-catch
+    } // fim do try-catch'
   } // fim do metodo enviarMensagem
+
+  /*
+   * Metodo: enviarMensagemPrivado
+   * Funcao: Envia uma mensagem privada utilizando o objeto APDU
+   * Parametros: usuarioDestino = usuario que vai receber, mensagem = texto
+   * Retorno: void
+   */
+  public void enviarMensagemPrivado(String usuarioDestino, String mensagem) {
+    try {
+      APDU apdu = new APDU("SENDPVT", null, this.nomeCliente, mensagem, this.portaClienteUDP, usuarioDestino);
+      enviarObjetoUDP(apdu);
+      System.out.println("CLIENTE - Enviando APDU SENDPVT para o servidor");
+    } catch (Exception e) {
+      System.out.println("CLIENTE - ERRO: Nao foi possivel enviar a mensagem privada!");
+    } // fim do try-catch
+  } // fim do metodo enviarMensagemPrivado
 
   /*
    * Metodo: fazerLogin

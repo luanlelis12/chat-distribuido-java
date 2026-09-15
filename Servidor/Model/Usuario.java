@@ -10,11 +10,13 @@
 package Model;
 
 import java.net.InetAddress;
+import java.util.HashSet;
 
 public class Usuario {
   InetAddress ip;
   String nome;
   int porta;
+  HashSet<String> bloqueados;
 
   public Usuario(InetAddress ip, String nome, int porta) {
     this.ip = ip;
