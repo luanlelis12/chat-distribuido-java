@@ -765,22 +765,22 @@ public class clienteController implements Initializable {
     System.out.println("CLIENTE - Iniciando encerramento da aplicacao...");
 
     if (cliente != null) {
-      listaConversas.forEach((chave, valor) -> {
-        System.out.println("CLIENTE - Desconectando do grupo: " + valor.getNome());
+      // listaConversas.forEach((chave, valor) -> {
+      //   System.out.println("CLIENTE - Desconectando do grupo: " + valor.getNome());
 
-        String grupoProcessado = processadorTexto.inserirFlagEscape(valor.getNome());
+      //   String grupoProcessado = processadorTexto.inserirFlagEscape(valor.getNome());
 
-        cliente.sairGrupo(grupoProcessado);
-      });
-      cliente.fazerLogout();
+      //   cliente.sairGrupo(grupoProcessado);
+      // });
+      // cliente.fazerLogout();
       cliente.desligarCliente();
 
       Platform.exit();
-      try {
-        Thread.sleep(1000);
-      } catch (InterruptedException e) {
-        e.printStackTrace();
-      } // fim do try-catch
+      // try {
+      //   Thread.sleep(1000);
+      // } catch (InterruptedException e) {
+      //   e.printStackTrace();
+      // } // fim do try-catch
     } // fim do if
 
     System.out.println("CLIENTE - Aplicacao encerrada com sucesso.");
