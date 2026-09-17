@@ -143,7 +143,6 @@ public class Servidor extends Thread {
    */
   public void processarApdu(APDU apdu, InetAddress ipCliente, ObjectOutputStream saida) {
     String operacao = apdu.getOperacao().toUpperCase();
-    System.out.println(operacao);
 
     switch (operacao) {
       case "REGISTER":
@@ -174,6 +173,7 @@ public class Servidor extends Thread {
       case "SENDVU":
         try {
           mutex.acquire();
+          avisarRecebimentoServidor(apdu);
           enviarMensagem(apdu, apdu.getNomeGrupo(), apdu.getNomeUsuario());
           mutex.release();
         } catch (Exception e) {}
@@ -182,6 +182,7 @@ public class Servidor extends Thread {
       case "SENDPVT":
         try {
           mutex.acquire();
+          avisarRecebimentoServidor(apdu);
           enviarMensagemPrivado(apdu, apdu.getDestinatario(), apdu.getNomeUsuario());
           mutex.release();
         } catch (Exception e) {}
@@ -424,19 +425,6 @@ public class Servidor extends Thread {
   } // fim do metodo enviarMensagemPrivado
 
   /*
-   * Metodo: encaminharConfirmacao
-   * Funcao: Devolve os ticks de confirmacao (recebido/lido) para o dono original da mensagem
-   * Parametros: apdu = APDU contendo o status de confirmacao
-   * Retorno: void
-   */
-  public void encaminharConfirmacao(APDU apdu) {
-    Usuario dono = usuariosOnline.get(apdu.getDonoDaMensagem());
-    if (dono != null) {
-      enviarObjetoUDP(apdu, dono.getIp(), dono.getPorta());
-    } // fim do if
-  } // fim do metodo encaminharConfirmacao
-
-  /*
    * Metodo: enviarObjetoUDP
    * Funcao: Serializa um objeto APDU e envia para o IP e porta especificados via datagrama UDP
    * Parametros: apdu = objeto APDU a ser enviado, ipDestino = IP do destinatario, portaDestino = porta UDP do destinatario
@@ -502,5 +490,29 @@ public class Servidor extends Thread {
       } // fim do if
     } catch (Exception e) {}
   } // fim do metodo desbloquearUsuario
+
+  /*
+   * Metodo: encaminharConfirmacao
+   * Funcao: Devolve os ticks de confirmacao (recebido/lido) para o dono original da mensagem
+   * Parametros: apdu = APDU contendo o status de confirmacao
+   * Retorno: void
+   */
+  public void encaminharConfirmacao(APDU apdu) {
+    Usuario dono = usuariosOnline.get(apdu.getDonoDaMensagem());
+    if (dono != null) {
+      enviarObjetoUDP(apdu, dono.getIp(), dono.getPorta());
+    } // fim do if
+  } // fim do metodo encaminharConfirmacao
+  
+  /*
+   * Metodo: avisarRecebimentoServidor
+   * Funcao: Gera e envia automaticamente o status 1 (Entregue ao servidor) de volta para o remetente
+   * Parametros: apduOriginal = APDU da mensagem que o servidor acabou de receber
+   * Retorno: void
+   */
+  private void avisarRecebimentoServidor(APDU apduOriginal) {
+    APDU tick1 = new APDU("CONFIRM", apduOriginal.getIdMensagem(), 1, "SERVIDOR", apduOriginal.getNomeGrupo(), apduOriginal.getNomeUsuario());
+    encaminharConfirmacao(tick1);
+  } // fim do metodo avisarRecebimentoServidor
 
 }

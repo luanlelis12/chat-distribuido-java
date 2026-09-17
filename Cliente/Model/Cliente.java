@@ -100,23 +100,22 @@ public class Cliente extends Thread {
    * Parametros: apduRecebida = objeto APDU deserializado recebido do servidor
    * Retorno: void
    */
-  /*
-   * Metodo: processarApdu
-   * Funcao: processa a APDU (Objeto) recebida do servidor via UDP
-   * Parametros: apdu = pacote recebido formatado
-   * Retorno: void
-   */
   private void processarApdu(APDU apdu) {
     String operacao = apdu.getOperacao();
     switch (operacao) {
       case "SEND":
       case "SENDVU":
+        enviarConfirmacao(apdu.getIdMensagem(), 2, apdu.getNomeGrupo(), apdu.getNomeUsuario());
+        
         Controller.clienteController.receberMensagem(apdu.getTextoMensagem(), apdu.getNomeGrupo(), apdu.getNomeUsuario(), GRUPO);
         break;
       case "SENDPVT":
+        enviarConfirmacao(apdu.getIdMensagem(), 2, null, apdu.getNomeUsuario());
+
         Controller.clienteController.receberMensagem(apdu.getTextoMensagem(), apdu.getNomeUsuario(), apdu.getNomeUsuario(), PRIVADO);
         break;
       case "CONFIRM":
+        
         System.out.println("CLIENTE - Recebeu confirmacao (Tick): MsgID " + apdu.getIdMensagem() + " Status " + apdu.getStatusRecebido());
         break;
     }
@@ -531,6 +530,23 @@ public class Cliente extends Thread {
       return false;
     } // fim do try-catch
   } // fim do metodo desbloquearUsuario
+
+  /*
+   * Metodo: enviarConfirmacao
+   * Funcao: Monta e envia uma APDU de confirmacao (Status 2 ou 3) de volta ao servidor
+   * Parametros: idMensagem = ID unico da mensagem, status = 2 (entregue) ou 3 (lido), nomeGrupo = onde a msg foi enviada, donoDaMensagem = quem enviou originalmente
+   * Retorno: void
+   */
+  public void enviarConfirmacao(String idMensagem, int status, String nomeGrupo, String donoDaMensagem) {
+    try {
+      // O APDU de confirmacao exige saber quem e o dono original para que o servidor possa encaminhar corretamente
+      APDU apduConfirm = new APDU("CONFIRM", idMensagem, status, this.nomeCliente, nomeGrupo, donoDaMensagem);
+      enviarObjetoUDP(apduConfirm);
+      System.out.println("CLIENTE - Enviando tick (Status " + status + ") para a mensagem ID: " + idMensagem);
+    } catch (Exception e) {
+      System.out.println("CLIENTE - ERRO ao enviar confirmacao!");
+    }
+  } // fim do metodo enviarConfirmacao
 
   public void desligarCliente() {
     endpointCliente.close();

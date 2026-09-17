@@ -30,7 +30,9 @@ import javafx.scene.Scene;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.control.Button;
+import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
+import javafx.scene.control.MenuItem;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
@@ -73,6 +75,8 @@ public class clienteController implements Initializable {
   private Button abrirListaMembrosButton;
   @FXML
   private TextField userBlock;
+  @FXML
+  private Button opcoesConversaButton;
 
   private double xOffset = 0;
   private double yOffset = 0;
@@ -831,4 +835,25 @@ public class clienteController implements Initializable {
     } // fim do metodo
 
   } // fim do metodo desbloquearUsuario
+
+  /*
+   * Metodo: abrirMenuOpcoesConversa
+   * Funcao: Cria e exibe um menu dropdown abaixo do botao de opcoes da conversa
+   * Parametros: event = evento de acao gerado pelo clique
+   * Retorno: void
+   */
+  @FXML
+  public void abrirMenuOpcoesConversa(ActionEvent event) {
+    ContextMenu menuDropdown = new ContextMenu();
+    
+    MenuItem opcao1 = new MenuItem("Minha Opcao");
+    
+    opcao1.setOnAction(e -> {
+      System.out.println("CLIENTE - Voce clicou na opcao do dropdown!");
+    });
+    
+    menuDropdown.getItems().add(opcao1);
+    
+    menuDropdown.show(opcoesConversaButton, javafx.geometry.Side.BOTTOM, 0, 0);
+  }
 }

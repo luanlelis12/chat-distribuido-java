@@ -129,12 +129,68 @@
   -fx-background-color: #d0d0d0;
 }
 
-.chat {
-  -fx-background-image: url("img/bgChat.png");
+.button1Visu {
+  -fx-background-image: url("img/button1Visu.png");
 }
 
-.grupos {
-  -fx-background-image: url("img/bgConversas.png");
+.button1Visu:hover {
+  -fx-background-image: url("img/button1VisuHover.png");
+}
+
+.button1Visu:pressed {
+  -fx-background-image: url("img/button1VisuPressed.png");
+}
+
+.button1VisuMarked {
+  -fx-background-image: url("img/button1VisuMarked.png");
+}
+
+.button1VisuMarked:hover {
+  -fx-background-image: url("img/button1VisuMarkedHover.png");
+}
+
+.button1VisuMarked:pressed {
+  -fx-background-image: url("img/button1VisuMarkedPressed.png");
+}
+
+.buttonOpcoes {
+  -fx-background-image: url("img/buttonOpcoes.png");
+}
+
+.buttonOpcoes:hover {
+  -fx-background-image: url("img/buttonOpcoesHover.png");
+}
+
+.buttonOpcoes:pressed {
+  -fx-background-image: url("img/buttonOpcoesPressed.png");
+}
+
+.buttonOpcoesConversa {
+  -fx-background-image: url("img/buttonOpcoesConversa.png");
+}
+
+.buttonOpcoesConversa:hover {
+  -fx-background-image: url("img/buttonOpcoesConversaHover.png");
+}
+
+.buttonOpcoesConversa:pressed {
+  -fx-background-image: url("img/buttonOpcoesConversaPressed.png");
+}
+
+.buttonMembros {
+  -fx-background-image: url("img/buttonMembros.png");
+}
+
+.buttonMembros:hover {
+  -fx-background-image: url("img/buttonMembrosHover.png");
+}
+
+.buttonMembros:pressed {
+  -fx-background-image: url("img/buttonMembrosPressed.png");
+}
+
+.menuChat {
+  -fx-background-image: url("img/menuChat.png");
 }
 
 .alert {
@@ -146,7 +202,7 @@
 }
 
 .notificacaoLabel {
-  /* -fx-background-color: #f5e55a; */
+  -fx-background-color: #f5e55a;
 }
 
 .buttonConversas {
