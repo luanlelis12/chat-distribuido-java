@@ -125,8 +125,8 @@ public class Cliente extends Thread {
         break;
         
       case "CONFIRM":
-        
         System.out.println("CLIENTE - Recebeu confirmacao (Tick): MsgID " + apdu.getIdMensagem() + " Status " + apdu.getStatusRecebido());
+        Controller.clienteController.atualizarStatusMensagem(apdu.getIdMensagem(), apdu.getStatusRecebido());
         break;
     } // fim do switch-case
   } // fim do metodo processarApdu
@@ -230,16 +230,18 @@ public class Cliente extends Thread {
    * Metodo: enviarMensagem
    * Funcao: Envia uma mensagem para o grupo utilizando o objeto APDU
    * Parametros: grupo = nome do grupo alvo, mensagem = texto da mensagem
-   * Retorno: void
+   * Retorno: String
    */
-  public void enviarMensagem(String grupo, String mensagem, boolean isVisuUnica) {
+  public String enviarMensagem(String grupo, String mensagem, boolean isVisuUnica) {
     try {
       String operacao = isVisuUnica ? "SENDVU" : "SEND"; 
       APDU apdu = new APDU(operacao, grupo, this.nomeCliente, mensagem, this.portaClienteUDP);
       enviarObjetoUDP(apdu);
       System.out.println("CLIENTE - Enviando APDU " + operacao + " para o servidor");
+      return apdu.getIdMensagem();
     } catch (Exception e) {
       System.out.println("CLIENTE - ERRO: Nao foi possivel enviar a mensagem!");
+      return null;
     } // fim do try-catch
   } // fim do metodo enviarMensagem
 
@@ -249,14 +251,16 @@ public class Cliente extends Thread {
    * Parametros: usuarioDestino = usuario que vai receber, mensagem = texto
    * Retorno: void
    */
-  public void enviarMensagemPrivado(String usuarioDestino, String mensagem, boolean isVisuUnica) {
+  public String enviarMensagemPrivado(String usuarioDestino, String mensagem, boolean isVisuUnica) {
     try {
       String operacao = isVisuUnica ? "SENDVU" : "SENDPVT"; 
       APDU apdu = new APDU(operacao, null, this.nomeCliente, mensagem, this.portaClienteUDP, usuarioDestino);
       enviarObjetoUDP(apdu);
       System.out.println("CLIENTE - Enviando APDU " + operacao + " para o servidor");
+      return apdu.getIdMensagem();
     } catch (Exception e) {
       System.out.println("CLIENTE - ERRO: Nao foi possivel enviar a mensagem privada!");
+      return null;
     } // fim do try-catch
   } // fim do metodo enviarMensagemPrivado
 

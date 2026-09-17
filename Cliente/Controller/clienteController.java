@@ -90,6 +90,7 @@ public class clienteController implements Initializable {
   
   private static Pair<String, String> conversaSelecionada = null; // Pair<nomeDaConversa,tipoDeConversa>
   private HashMap<Pair<String, String>, Conversa> listaConversas = new HashMap<>(); // <Pair<nomeDaConversa,tipoDeConversa>,Conversa>
+  private static HashMap<String, Label> mapaTicks = new HashMap<>(); // Mapa para guardar os ícones dos ticks
   private boolean isVisuUnica = false; // Controle da Visualizacao Unica
 
   @Override
@@ -180,30 +181,25 @@ public class clienteController implements Initializable {
    * Retorno: void
    */
   public void enviarMensagem() {
-
-    // Impede do usuario mandar mensagem sem selecionar alguma conversa
-    if (conversaSelecionada == null)
-      return;
+    if (conversaSelecionada == null) return;
 
     String mensagem = mensagemField.getText();
     mensagemField.clear();
 
-    // Impede do usuario mandar mensagem vazia
-    if (mensagem.equals(""))
-      return;
-
-    HBox balaoDeDialogo = criarBalaoDialogo(mensagem, "Voce", true, isVisuUnica);
-
-    // Adiciona o balao de mensagem no historico da conversa e na interface
-    listaConversas.get(conversaSelecionada).adicionarMensagem(balaoDeDialogo);
-    conversaVBox.getChildren().add(balaoDeDialogo);
-
+    if (mensagem.equals("")) return;
     System.out.println("CLIENTE - enviando mensagem \"" + mensagem + "\"");
 
+    String msgId = null;
     if (conversaSelecionada.getValue().equals(GRUPO)) {
-      cliente.enviarMensagem(conversaSelecionada.getKey(), mensagem, isVisuUnica);
+      msgId = cliente.enviarMensagem(conversaSelecionada.getKey(), mensagem, isVisuUnica);
     } else if (conversaSelecionada.getValue().equals(PRIVADO)) {
-      cliente.enviarMensagemPrivado(conversaSelecionada.getKey(), mensagem, isVisuUnica);
+      msgId = cliente.enviarMensagemPrivado(conversaSelecionada.getKey(), mensagem, isVisuUnica);
+    } // fim do if
+
+    if (msgId != null) {
+      HBox balaoDeDialogo = criarBalaoDialogo(mensagem, "Voce", true, isVisuUnica, msgId);
+      listaConversas.get(conversaSelecionada).adicionarMensagem(balaoDeDialogo);
+      conversaVBox.getChildren().add(balaoDeDialogo);
     } // fim do if
 
     if (isVisuUnica) {
@@ -234,7 +230,7 @@ public static void receberMensagem(String mensagem, String nomeConversa, String 
       if (nomeFinal.equals("SERVIDOR")) {
         balaoDeDialogo = criarAvisoSistema(msgFinal);
       } else {
-        balaoDeDialogo = criarBalaoDialogo(msgFinal, nomeFinal, false, isVisuUnica);
+        balaoDeDialogo = criarBalaoDialogo(msgFinal, nomeFinal, false, isVisuUnica, null);
       } // fim do if
 
       Pair<String, String> chaveRecebida = new Pair<>(chaveConversaStr, tipoConversa);
@@ -269,7 +265,7 @@ public static void receberMensagem(String mensagem, String nomeConversa, String 
    * enviadaPorMim = se foi mandada por ele mesmo
    * Retorno: void
    */
-  public static HBox criarBalaoDialogo(String mensagem, String nomeRemetente, boolean enviadaPorMim, boolean isVisuUnica) {
+  public static HBox criarBalaoDialogo(String mensagem, String nomeRemetente, boolean enviadaPorMim, boolean isVisuUnica, String idMensagem) {
 
     VBox balao = new VBox(5);
     balao.setMinWidth(200);
@@ -311,6 +307,17 @@ public static void receberMensagem(String mensagem, String nomeConversa, String 
       textoMsg.setWrapText(true);
       textoMsg.setMaxWidth(380);
       balao.getChildren().add(textoMsg);
+    } // fim do if
+
+    if (enviadaPorMim && idMensagem != null) {
+      Label tickLabel = new Label(" ...");
+      tickLabel.setStyle("-fx-text-fill: gray; -fx-font-weight: bold;");
+      
+      mapaTicks.put(idMensagem, tickLabel);
+
+      HBox tickBox = new HBox(tickLabel);
+      tickBox.setAlignment(Pos.BOTTOM_RIGHT);
+      balao.getChildren().add(tickBox);
     } // fim do if
 
     HBox linha = new HBox(balao);
@@ -430,7 +437,8 @@ public static void receberMensagem(String mensagem, String nomeConversa, String 
         conversaSelecionadaLabel.setText("");
         conversaSelecionada = null;
         mensagemField.setDisable(true);
-        abrirListaMembrosButton.setVisible(false);
+        abrirListaMembrosButton.setDisable(true);
+        opcoesConversaButton.setDisable(true);
       } // fim do if
 
       // Remove o botao da interface varrendo a lista e procurando pelo nome
@@ -514,6 +522,7 @@ public static void receberMensagem(String mensagem, String nomeConversa, String 
     if (usuarioExiste) {
       System.out.println("CLIENTE - Usuario encontrado! Criando aba privada.");
       adicionarConversaNaTela(nomeUsuario, PRIVADO);
+      abrirConversa(nomeUsuario, PRIVADO);
     } else {
       System.out.println("CLIENTE - O usuario " + nomeUsuario + " nao existe ou esta offline.");
 
@@ -954,4 +963,36 @@ public static void receberMensagem(String mensagem, String nomeConversa, String 
     } // fim do try-catch
   } // fim do metodo abrirTelaBloquearUsuario
 
+  /*
+   * Metodo: atualizarStatusMensagem
+   * Funcao: Muda a imagem do tick (confirm) da mensagem de acordo com o status recebido
+   */
+  /*
+   * Metodo: atualizarStatusMensagem
+   * Funcao: Altera o texto e a cor do tick baseado no status igual ao WhatsApp
+   */
+  public static void atualizarStatusMensagem(String idMensagem, int statusRecebido) {
+    Platform.runLater(() -> {
+      if (idMensagem != null && mapaTicks.containsKey(idMensagem)) {
+        Label tickLabel = mapaTicks.get(idMensagem);
+        
+        if (statusRecebido == -1) {
+            tickLabel.setText(" [X]");
+            tickLabel.setStyle("-fx-text-fill: red; -fx-font-weight: bold;");
+        } else if (statusRecebido == 0) {
+            tickLabel.setText(" ...");
+            tickLabel.setStyle("-fx-text-fill: gray;");
+        } else if (statusRecebido == 1) {
+            tickLabel.setText(" \u2713"); // Um tick cinza
+            tickLabel.setStyle("-fx-text-fill: gray; -fx-font-weight: bold;");
+        } else if (statusRecebido == 2) {
+            tickLabel.setText(" \u2713\u2713"); // Dois ticks cinzas
+            tickLabel.setStyle("-fx-text-fill: gray; -fx-font-weight: bold;");
+        } else if (statusRecebido >= 3) {
+            tickLabel.setText(" \u2713\u2713"); // Dois ticks AZUIS (Lido!)
+            tickLabel.setStyle("-fx-text-fill: #34B7F1; -fx-font-weight: bold;");
+        } // fim do if
+      } // fim do if
+    });
+  } // fim do metodo atualizarStatusMensagem
 }

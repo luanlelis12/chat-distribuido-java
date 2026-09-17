@@ -12,7 +12,14 @@
 
 <AnchorPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="670.0" prefWidth="1320.0" styleClass="menuChat" stylesheets="@style.css" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="Controller.clienteController">
    <children>
-      <Pane fx:id="barraSuperior" prefHeight="52.0" prefWidth="1220.0" />
+      <Pane fx:id="barraSuperior" prefHeight="52.0" prefWidth="1220.0">
+         <children>
+            <Label fx:id="clienteLabel" layoutX="80.0" layoutY="10.0" maxHeight="30.0" prefHeight="30.0" prefWidth="55.0" textFill="#545250">
+               <font>
+                  <Font name="Arial Bold" size="24.0" />
+               </font>
+            </Label>
+         </children></Pane>
       <Label fx:id="conversaSelecionadaLabel" layoutX="400.0" layoutY="55.0" maxHeight="30.0" prefHeight="30.0" textFill="#545250">
          <font>
             <Font name="Arial Bold" size="24.0" />
@@ -46,7 +53,7 @@
       <Button fx:id="enviarButton" layoutX="1240.0" layoutY="590.0" mnemonicParsing="false" onAction="#enviarMensagem" prefHeight="55.0" prefWidth="55.0" styleClass="buttonEnviarDes" />
       <Button fx:id="button1Visu" layoutX="385.0" layoutY="590.0" mnemonicParsing="false" onAction="#alternarVisuUnica" prefHeight="55.0" prefWidth="55.0" styleClass="button1Visu" />
       <TextArea fx:id="mensagemField" disable="true" layoutX="455.0" layoutY="595.0" maxWidth="770.0" prefHeight="45.0" prefWidth="770.0" wrapText="true" />
-      <Button fx:id="opcoesConversaButton" disable="true" layoutX="1269.0" layoutY="55.0" mnemonicParsing="false" onAction="#abrirMenuOpcoesConversa" prefHeight="30.0" prefWidth="31.0" styleClass="buttonOpcoesConversa" />
-      <Button fx:id="abrirListaMembrosButton" disable="true" layoutX="1234.0" layoutY="55.0" mnemonicParsing="false" onAction="#abrirListaMembros" prefHeight="30.0" prefWidth="31.0" styleClass="buttonMembros" />
+      <Button fx:id="opcoesConversaButton" disable="true" layoutX="1269.0" layoutY="55.0" mnemonicParsing="false" onAction="#abrirMenuOpcoesConversa" prefHeight="29.0" prefWidth="31.0" styleClass="buttonOpcoesConversa" />
+      <Button fx:id="abrirListaMembrosButton" disable="true" layoutX="1234.0" layoutY="55.0" mnemonicParsing="false" onAction="#abrirListaMembros" prefHeight="29.0" prefWidth="30.0" styleClass="buttonMembros" />
    </children>
 </AnchorPane>
