@@ -2,7 +2,7 @@
 * Autor............: Luan Alves Lelis Costa
 * Matricula........: 202310352
 * Inicio...........: 12/06/2026
-* Ultima alteracao.: 15/09/2026
+* Ultima alteracao.: 17/09/2026
 * Nome.............: clienteController.java
 * Funcao...........: Faz a ponte de comunicacao entre a interface e a classe cliente
 *******************************************************************/
@@ -16,7 +16,6 @@ import java.util.ResourceBundle;
 
 import Model.Cliente;
 import Model.Conversa;
-import Util.processadorTexto;
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
@@ -72,11 +71,13 @@ public class clienteController implements Initializable {
   @FXML
   private ToggleGroup tipoDeConversa;
   @FXML
-  private Button abrirListaMembrosButton;
-  @FXML
   private TextField userBlock;
   @FXML
+  private Button abrirListaMembrosButton;
+  @FXML
   private Button opcoesConversaButton;
+  @FXML 
+  private Button button1Visu;
 
   private double xOffset = 0;
   private double yOffset = 0;
@@ -85,11 +86,11 @@ public class clienteController implements Initializable {
   static final String PRIVADO = "priv";
 
   private static clienteController instancia;
-
   private static Cliente cliente;
-
+  
   private static Pair<String, String> conversaSelecionada = null; // Pair<nomeDaConversa,tipoDeConversa>
   private HashMap<Pair<String, String>, Conversa> listaConversas = new HashMap<>(); // <Pair<nomeDaConversa,tipoDeConversa>,Conversa>
+  private boolean isVisuUnica = false; // Controle da Visualizacao Unica
 
   @Override
   public void initialize(URL location, ResourceBundle resources) {
@@ -191,19 +192,22 @@ public class clienteController implements Initializable {
     if (mensagem.equals(""))
       return;
 
-    HBox balaoDeDialogo = criarBalaoDialogo(mensagem, "Voce", true);
+    HBox balaoDeDialogo = criarBalaoDialogo(mensagem, "Voce", true, isVisuUnica);
 
     // Adiciona o balao de mensagem no historico da conversa e na interface
     listaConversas.get(conversaSelecionada).adicionarMensagem(balaoDeDialogo);
     conversaVBox.getChildren().add(balaoDeDialogo);
 
-    mensagem = processadorTexto.inserirFlagEscape(mensagem);
     System.out.println("CLIENTE - enviando mensagem \"" + mensagem + "\"");
 
     if (conversaSelecionada.getValue().equals(GRUPO)) {
-      cliente.enviarMensagem(processadorTexto.inserirFlagEscape(conversaSelecionada.getKey()), mensagem);
+      cliente.enviarMensagem(conversaSelecionada.getKey(), mensagem, isVisuUnica);
     } else if (conversaSelecionada.getValue().equals(PRIVADO)) {
-      cliente.enviarMensagemPrivado(processadorTexto.inserirFlagEscape(conversaSelecionada.getKey()), mensagem);
+      cliente.enviarMensagemPrivado(conversaSelecionada.getKey(), mensagem, isVisuUnica);
+    } // fim do if
+
+    if (isVisuUnica) {
+      alternarVisuUnica(null);
     } // fim do if
   } // fim do metodo enviarMensagem
 
@@ -215,63 +219,46 @@ public class clienteController implements Initializable {
    * tipoConversa = se foi mandada para um grupo ou no privado
    * Retorno: void
    */
-  public static void receberMensagem(String mensagem, String nomeConversa, String nomeRemetente, String tipoConversa) {
+public static void receberMensagem(String mensagem, String nomeConversa, String nomeRemetente, String tipoConversa, boolean isVisuUnica) {
 
-    nomeConversa = nomeConversa.trim();
-    mensagem = mensagem.trim();
-    nomeRemetente = nomeRemetente.trim();
+    final String nomeConversaFinal = (nomeConversa != null) ? nomeConversa.trim() : "";
+    final String msgFinal = (mensagem != null) ? mensagem.trim() : "";
+    final String nomeFinal = (nomeRemetente != null) ? nomeRemetente.trim() : "";
 
-    final String msgFinal = processadorTexto.retirarFlagEscape(mensagem);
-    final String nomeFinal = processadorTexto.retirarFlagEscape(nomeRemetente);
-    final String nomeConversaFinal;
-
-    if (tipoConversa.equals(GRUPO)) { // verifica se eh uma mensagem de grupo ou priv e define o nome da conversa
-      nomeConversaFinal = processadorTexto.retirarFlagEscape(nomeConversa);
-    } else {
-      nomeConversaFinal = processadorTexto.retirarFlagEscape(nomeRemetente);
-    } // fim if-else
+    final String chaveConversaStr = tipoConversa.equals(GRUPO) ? nomeConversaFinal : nomeFinal;
 
     Platform.runLater(() -> {
-      HBox balaoDeDialogo = criarBalaoDialogo(msgFinal, nomeFinal, false);
+      HBox balaoDeDialogo;
 
       // Verifica quem enviou a mensagem
       if (nomeFinal.equals("SERVIDOR")) {
         balaoDeDialogo = criarAvisoSistema(msgFinal);
       } else {
-        balaoDeDialogo = criarBalaoDialogo(msgFinal, nomeFinal, false);
-      } // fim do if-else
+        balaoDeDialogo = criarBalaoDialogo(msgFinal, nomeFinal, false, isVisuUnica);
+      } // fim do if
 
-      Pair<String, String> chaveRecebida = new Pair<>(nomeConversaFinal, tipoConversa);
+      Pair<String, String> chaveRecebida = new Pair<>(chaveConversaStr, tipoConversa);
 
       if (!instancia.listaConversas.containsKey(chaveRecebida)) {
-        instancia.adicionarConversaNaTela(nomeConversaFinal, tipoConversa);
-      } // fim if
+        instancia.adicionarConversaNaTela(chaveConversaStr, tipoConversa);
+      } // fim do if
 
       Conversa conversa = instancia.listaConversas.get(chaveRecebida);
 
       if (conversaSelecionada == null || !conversaSelecionada.equals(chaveRecebida)) {
-
-        // Pega o numero atual de notifiacoes
         int contagemAtual = conversa.getNotificacoes();
-
-        // Adiciona +1 nas notificacoes
         conversa.setNotificacoes(contagemAtual + 1);
-
-        System.out
-            .println("CLIENTE - " + nomeConversaFinal + " tem " + (contagemAtual + 1) + " novas mensagens.");
+        System.out.println("CLIENTE - " + chaveConversaStr + " tem " + (contagemAtual + 1) + " novas mensagens.");
       } // fim do if
 
       conversa.adicionarMensagem(balaoDeDialogo);
 
       if (conversaSelecionada != null && conversaSelecionada.equals(chaveRecebida)) {
         instancia.conversaVBox.getChildren().add(balaoDeDialogo);
-      } // fim if
+      } // fim do if
     });
 
-    System.out
-        .println(
-            "CLIENTE - exibindo mensagem \"" + msgFinal + "\" de " + nomeFinal + " na conversa " + nomeConversaFinal
-                + ".");
+    System.out.println("CLIENTE - exibindo mensagem \"" + msgFinal + "\" de " + nomeFinal + " na conversa " + chaveConversaStr + ".");
   } // fim do metodo receberMensagem
 
   /*
@@ -282,10 +269,9 @@ public class clienteController implements Initializable {
    * enviadaPorMim = se foi mandada por ele mesmo
    * Retorno: void
    */
-  public static HBox criarBalaoDialogo(String mensagem, String nomeRemetente, boolean enviadaPorMim) {
+  public static HBox criarBalaoDialogo(String mensagem, String nomeRemetente, boolean enviadaPorMim, boolean isVisuUnica) {
 
     VBox balao = new VBox(5);
-
     balao.setMinWidth(200);
     balao.setMaxWidth(400);
     balao.setPadding(new Insets(10));
@@ -298,13 +284,34 @@ public class clienteController implements Initializable {
       balao.getChildren().add(labelNome);
     } // fim do if
 
-    Label textoMsg = new Label(mensagem);
-    textoMsg.setFont(new Font("System", 14));
-    textoMsg.setWrapText(true);
-
-    textoMsg.setMaxWidth(380);
-
-    balao.getChildren().add(textoMsg);
+    if (isVisuUnica) {
+      Button btnVisu = new Button();
+      btnVisu.setStyle("-fx-background-color: transparent; -fx-font-weight: bold; -fx-cursor: hand; -fx-text-fill: #555555;");
+      
+      if (enviadaPorMim) {
+        btnVisu.setText("Mensagem Unica Enviada");
+        btnVisu.setDisable(true);
+      } else {
+        btnVisu.setText("Ver Mensagem Unica");
+        btnVisu.setStyle("-fx-background-color: #3b82f6; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;");
+        
+        btnVisu.setOnAction(e -> {
+          btnVisu.setText("Mensagem Visualizada");
+          btnVisu.setDisable(true);
+          btnVisu.setStyle("-fx-background-color: transparent; -fx-text-fill: #999999; -fx-font-style: italic;");
+          
+          abrirAlertaVisuUnica(nomeRemetente, mensagem);
+        });
+      } // fim do if
+      balao.getChildren().add(btnVisu);
+      
+    } else {
+      Label textoMsg = new Label(mensagem);
+      textoMsg.setFont(new Font("System", 14));
+      textoMsg.setWrapText(true);
+      textoMsg.setMaxWidth(380);
+      balao.getChildren().add(textoMsg);
+    } // fim do if
 
     HBox linha = new HBox(balao);
 
@@ -336,10 +343,9 @@ public class clienteController implements Initializable {
    * Retorno: void
    */
   public void entrarGrupo(String nomeGrupo) {
-    String nomeGrupoProcessado = processadorTexto.inserirFlagEscape(nomeGrupo);
 
     // Alert para impedir do usuario criar grupo com nome vazio
-    if (nomeGrupoProcessado == null || nomeGrupoProcessado.trim().isEmpty()) {
+    if (nomeGrupo == null || nomeGrupo.trim().isEmpty()) {
       try {
         FXMLLoader loader = new FXMLLoader(getClass().getResource("/View/alert.fxml"));
         Parent root = loader.load();
@@ -389,7 +395,7 @@ public class clienteController implements Initializable {
     } // fim do if
 
     try {
-      boolean sucesso = cliente.entrarGrupo(nomeGrupoProcessado);
+      boolean sucesso = cliente.entrarGrupo(nomeGrupo);
 
       if (sucesso) {
         System.out.println("CLIENTE - Entrada no grupo confirmada pelo servidor!");
@@ -409,38 +415,35 @@ public class clienteController implements Initializable {
    * Parametros: itemConversa = AnchorPane que contem o botao do grupo
    * Retorno: void
    */
-  public void sairGrupo(AnchorPane itemConversa) {
-    Label label = (Label) itemConversa.lookup("#nomeConversa");
+  public void sairGrupo(String nomeGrupo) {
+    System.out.println("CLIENTE - Solicitando saida do grupo " + nomeGrupo + "...");
 
-    if (label != null) {
-      String nomeGrupo = label.getText();
-      System.out.println("CLIENTE - Solicitando saida do grupo " + nomeGrupo + "...");
+    boolean sucesso = cliente.sairGrupo(nomeGrupo);
 
-      String nomeGrupoProcessado = processadorTexto.inserirFlagEscape(nomeGrupo);
+    if (sucesso) {
+      Pair<String, String> grupo = new Pair<>(nomeGrupo, GRUPO);
+      listaConversas.remove(grupo);
 
-      boolean sucesso = cliente.sairGrupo(nomeGrupoProcessado);
+      // Limpa o chat se o grupo que saiu era o que estava aberto na tela
+      if (conversaSelecionada != null && conversaSelecionada.getKey().equals(nomeGrupo)) {
+        conversaVBox.getChildren().clear();
+        conversaSelecionadaLabel.setText("");
+        conversaSelecionada = null;
+        mensagemField.setDisable(true);
+        abrirListaMembrosButton.setVisible(false);
+      } // fim do if
 
-      if (sucesso) {
-        Pair<String, String> grupo = new Pair<String, String>(nomeGrupo, GRUPO);
-        listaConversas.remove(grupo);
-
-        if (conversaSelecionada != null) {
-          String nomeConversaAberta = processadorTexto.retirarFlagEscape(conversaSelecionada.getKey());
-
-          if (nomeConversaAberta.equals(nomeGrupo)) {
-            conversaVBox.getChildren().clear();
-            conversaSelecionadaLabel.setText("");
-            conversaSelecionada = null;
-            mensagemField.setDisable(true);
-            abrirListaMembrosButton.setVisible(false);
-          } // fim do if
+      // Remove o botao da interface varrendo a lista e procurando pelo nome
+      vboxGrupos.getChildren().removeIf(node -> {
+        if (node instanceof AnchorPane) {
+          Label lbl = (Label) node.lookup("#nomeConversa");
+          return lbl != null && lbl.getText().equals(nomeGrupo);
         } // fim do if
+        return false;
+      });
 
-        itemConversa.getChildren().clear();
-        vboxGrupos.getChildren().remove(itemConversa);
-      } else {
-        System.out.println("CLIENTE - O servidor falhou em remover o usuario do grupo.");
-      } // fim do if-else
+    } else {
+      System.out.println("CLIENTE - O servidor falhou em remover o usuario do grupo.");
     } // fim do if
   } // fim do metodo sairGrupo
 
@@ -451,10 +454,9 @@ public class clienteController implements Initializable {
    * Retorno: void
    */
   public void criarConversaPrivada(String nomeUsuario) {
-    String nomeUsuarioProcessado = processadorTexto.retirarFlagEscape(cliente.getNomeCliente());
 
     // impede de criar conversa com alguem de nome vazio
-    if (nomeUsuarioProcessado == null || nomeUsuarioProcessado.trim().isEmpty()) {
+    if (nomeUsuario == null || nomeUsuario.trim().isEmpty()) {
       try {
         FXMLLoader loader = new FXMLLoader(getClass().getResource("/View/alert.fxml"));
         Parent root = loader.load();
@@ -563,13 +565,6 @@ public class clienteController implements Initializable {
         notificacaoImage.setVisible(false);
       } // fim do if
 
-      Button sairConversa = (Button) itemConversa.lookup(".buttonSair");
-      if (sairConversa != null) {
-        sairConversa.setOnAction(event -> {
-          sairGrupo(itemConversa);
-        });
-      } // fim do if
-
       if (tipoConversa.equals(PRIVADO)) {
         String caminhoImagem = "/View/img/iconPriv.png";
 
@@ -580,7 +575,6 @@ public class clienteController implements Initializable {
           System.out.println("Aviso: Imagem nao encontrada, mantendo a foto padrao.");
         } // fim do try-catch
 
-        itemConversa.getChildren().remove(sairConversa);
       } // fim do if
 
       Pair<String, String> chaveConversa = new Pair<>(nomeConversa, tipoConversa);
@@ -656,9 +650,11 @@ public class clienteController implements Initializable {
     System.out.println("CLIENTE - Lidas as mensagens de: " + nomeConversa);
 
     if (tipoConversa.equals(GRUPO)) {
-      abrirListaMembrosButton.setVisible(true);
+      abrirListaMembrosButton.setDisable(false);
+      opcoesConversaButton.setDisable(false);
     } else {
-      abrirListaMembrosButton.setVisible(false);
+      abrirListaMembrosButton.setDisable(true);
+      opcoesConversaButton.setDisable(true);
     } // fim do if-else
     mensagemField.setDisable(false);
 
@@ -723,8 +719,7 @@ public class clienteController implements Initializable {
    */
   public void abrirListaMembros() {
     if (conversaSelecionada != null && conversaSelecionada.getValue().equals(GRUPO)) {
-      String nomeGrupoProcessado = processadorTexto.inserirFlagEscape(conversaSelecionada.getKey());
-      cliente.solicitarListaMembros(nomeGrupoProcessado);
+      cliente.solicitarListaMembros(conversaSelecionada.getKey());
     } // fim do if
   } // fim do metodo abrirListaMembros
 
@@ -814,7 +809,7 @@ public class clienteController implements Initializable {
     if (cliente.bloquearUsuario(usuario)) {
       System.out.println("CLIENTE - Usuario "+ usuario +" foi bloqueado!");
     } else {
-      System.out.println("CLIENTE - Usuario "+ usuario +" não foi bloqueado!");
+      System.out.println("CLIENTE - Usuario "+ usuario +" nao foi bloqueado!");
     } // fim do metodo
 
   } // fim do metodo bloquearUsuario
@@ -846,14 +841,61 @@ public class clienteController implements Initializable {
   public void abrirMenuOpcoesConversa(ActionEvent event) {
     ContextMenu menuDropdown = new ContextMenu();
     
-    MenuItem opcao1 = new MenuItem("Minha Opcao");
+    MenuItem opcao1 = new MenuItem("Sair grupo");
     
     opcao1.setOnAction(e -> {
-      System.out.println("CLIENTE - Voce clicou na opcao do dropdown!");
+      sairGrupo(conversaSelecionada.getKey());
     });
     
     menuDropdown.getItems().add(opcao1);
     
     menuDropdown.show(opcoesConversaButton, javafx.geometry.Side.BOTTOM, 0, 0);
-  }
+  } // fim do metodo abrirMenuOpcoesConversa
+
+  /*
+   * Metodo: alternarVisuUnica
+   * Funcao: Liga ou desliga o modo de visualizacao unica e muda o estilo do botao
+   * Parametros: event = evento de acao gerado pelo clique
+   * Retorno: void
+   */
+  @FXML
+  public void alternarVisuUnica(ActionEvent event) {
+    isVisuUnica = !isVisuUnica; // Inverte o valor (se era false vira true, e vice-versa)
+    
+    if (isVisuUnica) {
+      // Remove o estilo normal e adiciona o estilo "Marcado" que vi nas suas imagens
+      button1Visu.getStyleClass().remove("button1Visu");
+      button1Visu.getStyleClass().add("button1VisuMarked");
+      System.out.println("CLIENTE - Modo Visualizacao Unica ATIVADO");
+    } else {
+      // Volta para o estilo normal
+      button1Visu.getStyleClass().remove("button1VisuMarked");
+      button1Visu.getStyleClass().add("button1Visu");
+      System.out.println("CLIENTE - Modo Visualizacao Unica DESATIVADO");
+    } // fim do if
+  } // fim do metodo alternarVisuUnica
+
+  /*
+   * Metodo: abrirAlertaVisuUnica
+   * Funcao: Abre um popup utilizando a tela de alerta para exibir a mensagem de visualizacao unica
+   */
+  public static void abrirAlertaVisuUnica(String remetente, String mensagemSecreta) {
+    try {
+      FXMLLoader loader = new FXMLLoader(instancia.getClass().getResource("/View/alert.fxml"));
+      Parent root = loader.load();
+
+      alertController controladorDoAlerta = loader.getController();
+      controladorDoAlerta.setDetalhes("Visualizacao Unica de " + remetente, mensagemSecreta);
+
+      Stage janelaAlerta = new Stage();
+      janelaAlerta.setScene(new Scene(root));
+      janelaAlerta.initStyle(StageStyle.UNDECORATED);
+      janelaAlerta.initModality(Modality.APPLICATION_MODAL);
+      janelaAlerta.show();
+    } catch (IOException e) {
+      System.out.println("CLIENTE - Erro ao abrir a mensagem de visualizacao unica.");
+      e.printStackTrace();
+    } // fim do try-catch
+  } // fim do metodo abrirAlertaVisuUnica
+
 }

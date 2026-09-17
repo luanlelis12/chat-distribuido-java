@@ -2,7 +2,7 @@
 * Autor............: Luan Alves Lelis Costa
 * Matricula........: 202310352
 * Inicio...........: 15/06/2026
-* Ultima alteracao.: 14/09/2026
+* Ultima alteracao.: 17/09/2026
 * Nome.............: menuInicialController.java
 * Funcao...........: Gerencia a interface do menuInicial e comunica com o cliente.java para criar o cliente
 *******************************************************************/
@@ -13,7 +13,6 @@ import java.net.URL;
 import java.util.ResourceBundle;
 
 import Network.Descobridor;
-import Util.processadorTexto;
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
@@ -66,7 +65,6 @@ public class menuInicialController implements Initializable {
    */
   public void criarCliente(ActionEvent event) {
     String nomeCliente = nomeTextField.getText();
-    nomeCliente = processadorTexto.inserirFlagEscape(nomeCliente);
 
     if (nomeCliente == null || nomeCliente.trim().isEmpty()) { // verifica se o nome eh vazio
       try {

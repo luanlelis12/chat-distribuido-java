@@ -201,10 +201,6 @@
   -fx-background-color: #2731a5;
 }
 
-.notificacaoLabel {
-  -fx-background-color: #f5e55a;
-}
-
 .buttonConversas {
   -fx-background-image: url("img/buttonConversa.png");
 }

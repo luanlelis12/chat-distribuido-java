@@ -2,7 +2,7 @@
 * Autor............: Luan Alves Lelis Costa
 * Matricula........: 202310352
 * Inicio...........: 29/06/2026
-* Ultima alteracao.: 30/06/2026
+* Ultima alteracao.: 17/09/2026
 * Nome.............: listarConversasController.java
 * Funcao...........: Gerencia a interface de lista membros de um grupo ou listar os grupos no servidor
 *******************************************************************/
@@ -12,7 +12,6 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.ResourceBundle;
 
-import Util.processadorTexto;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
@@ -87,7 +86,7 @@ public class listarConversasController implements Initializable {
 
     // Exibe na tela todos os grupos/membros
     for (String item : conversas) {
-      adicionarGruposOuMembros(processadorTexto.retirarFlagEscape(item));
+      adicionarGruposOuMembros(item);
     } // fim do for
   }
 

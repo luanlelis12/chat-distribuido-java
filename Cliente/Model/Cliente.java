@@ -2,7 +2,7 @@
 * Autor............: Luan Alves Lelis Costa
 * Matricula........: 202310352
 * Inicio...........: 12/06/2026
-* Ultima alteracao.: 15/09/2026
+* Ultima alteracao.: 17/09/2026
 * Nome.............: Cliente.java
 * Funcao...........: Gerencia as apdus e a comunicacao com o servidor
 *******************************************************************/
@@ -104,22 +104,32 @@ public class Cliente extends Thread {
     String operacao = apdu.getOperacao();
     switch (operacao) {
       case "SEND":
-      case "SENDVU":
         enviarConfirmacao(apdu.getIdMensagem(), 2, apdu.getNomeGrupo(), apdu.getNomeUsuario());
-        
-        Controller.clienteController.receberMensagem(apdu.getTextoMensagem(), apdu.getNomeGrupo(), apdu.getNomeUsuario(), GRUPO);
+        // Passa FALSE no final, pois e uma mensagem normal
+        Controller.clienteController.receberMensagem(apdu.getTextoMensagem(), apdu.getNomeGrupo(), apdu.getNomeUsuario(), GRUPO, false);
         break;
+
       case "SENDPVT":
         enviarConfirmacao(apdu.getIdMensagem(), 2, null, apdu.getNomeUsuario());
-
-        Controller.clienteController.receberMensagem(apdu.getTextoMensagem(), apdu.getNomeUsuario(), apdu.getNomeUsuario(), PRIVADO);
+        Controller.clienteController.receberMensagem(apdu.getTextoMensagem(), apdu.getNomeUsuario(), apdu.getNomeUsuario(), PRIVADO, false);
         break;
+
+      case "SENDVU":
+        if (apdu.getDestinatario() != null) {
+          enviarConfirmacao(apdu.getIdMensagem(), 2, null, apdu.getNomeUsuario());
+          Controller.clienteController.receberMensagem(apdu.getTextoMensagem(), apdu.getNomeUsuario(), apdu.getNomeUsuario(), PRIVADO, true);
+        } else {
+          enviarConfirmacao(apdu.getIdMensagem(), 2, apdu.getNomeGrupo(), apdu.getNomeUsuario());
+          Controller.clienteController.receberMensagem(apdu.getTextoMensagem(), apdu.getNomeGrupo(), apdu.getNomeUsuario(), GRUPO, true);
+        } // fim do if
+        break;
+        
       case "CONFIRM":
         
         System.out.println("CLIENTE - Recebeu confirmacao (Tick): MsgID " + apdu.getIdMensagem() + " Status " + apdu.getStatusRecebido());
         break;
-    }
-  }
+    } // fim do switch-case
+  } // fim do metodo processarApdu
 
   /*
    * Metodo: entrarGrupo
@@ -222,14 +232,15 @@ public class Cliente extends Thread {
    * Parametros: grupo = nome do grupo alvo, mensagem = texto da mensagem
    * Retorno: void
    */
-  public void enviarMensagem(String grupo, String mensagem) {
+  public void enviarMensagem(String grupo, String mensagem, boolean isVisuUnica) {
     try {
-      APDU apdu = new APDU("SEND", grupo, this.nomeCliente, mensagem, this.portaClienteUDP);
+      String operacao = isVisuUnica ? "SENDVU" : "SEND"; 
+      APDU apdu = new APDU(operacao, grupo, this.nomeCliente, mensagem, this.portaClienteUDP);
       enviarObjetoUDP(apdu);
-      System.out.println("CLIENTE - Enviando APDU SEND para o servidor");
+      System.out.println("CLIENTE - Enviando APDU " + operacao + " para o servidor");
     } catch (Exception e) {
       System.out.println("CLIENTE - ERRO: Nao foi possivel enviar a mensagem!");
-    } // fim do try-catch'
+    } // fim do try-catch
   } // fim do metodo enviarMensagem
 
   /*
@@ -238,11 +249,12 @@ public class Cliente extends Thread {
    * Parametros: usuarioDestino = usuario que vai receber, mensagem = texto
    * Retorno: void
    */
-  public void enviarMensagemPrivado(String usuarioDestino, String mensagem) {
+  public void enviarMensagemPrivado(String usuarioDestino, String mensagem, boolean isVisuUnica) {
     try {
-      APDU apdu = new APDU("SENDPVT", null, this.nomeCliente, mensagem, this.portaClienteUDP, usuarioDestino);
+      String operacao = isVisuUnica ? "SENDVU" : "SENDPVT"; 
+      APDU apdu = new APDU(operacao, null, this.nomeCliente, mensagem, this.portaClienteUDP, usuarioDestino);
       enviarObjetoUDP(apdu);
-      System.out.println("CLIENTE - Enviando APDU SENDPVT para o servidor");
+      System.out.println("CLIENTE - Enviando APDU " + operacao + " para o servidor");
     } catch (Exception e) {
       System.out.println("CLIENTE - ERRO: Nao foi possivel enviar a mensagem privada!");
     } // fim do try-catch

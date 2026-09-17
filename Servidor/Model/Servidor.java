@@ -2,7 +2,7 @@
 * Autor............: Luan Alves Lelis Costa
 * Matricula........: 202310352
 * Inicio...........: 12/06/2026
-* Ultima alteracao.: 15/09/2026
+* Ultima alteracao.: 17/09/2026
 * Nome.............: Servidor.java
 * Funcao...........: Gerenciar os grupos, usuarios e as apdus recebidas
 *******************************************************************/
@@ -170,10 +170,9 @@ public class Servidor extends Thread {
         break;
 
       case "SEND":
-      case "SENDVU":
         try {
           mutex.acquire();
-          avisarRecebimentoServidor(apdu);
+          avisarRecebimentoServidor(apdu); 
           enviarMensagem(apdu, apdu.getNomeGrupo(), apdu.getNomeUsuario());
           mutex.release();
         } catch (Exception e) {}
@@ -182,8 +181,21 @@ public class Servidor extends Thread {
       case "SENDPVT":
         try {
           mutex.acquire();
-          avisarRecebimentoServidor(apdu);
+          avisarRecebimentoServidor(apdu); 
           enviarMensagemPrivado(apdu, apdu.getDestinatario(), apdu.getNomeUsuario());
+          mutex.release();
+        } catch (Exception e) {}
+        break;
+
+      case "SENDVU":
+        try {
+          mutex.acquire();
+          avisarRecebimentoServidor(apdu); 
+          if (apdu.getDestinatario() != null) {
+            enviarMensagemPrivado(apdu, apdu.getDestinatario(), apdu.getNomeUsuario());
+          } else {
+            enviarMensagem(apdu, apdu.getNomeGrupo(), apdu.getNomeUsuario());
+          } // fim do if
           mutex.release();
         } catch (Exception e) {}
         break;

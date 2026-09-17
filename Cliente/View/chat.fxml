@@ -13,9 +13,9 @@
 <AnchorPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="670.0" prefWidth="1320.0" styleClass="menuChat" stylesheets="@style.css" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="Controller.clienteController">
    <children>
       <Pane fx:id="barraSuperior" prefHeight="52.0" prefWidth="1220.0" />
-      <Label fx:id="conversaSelecionadaLabel" layoutX="400.0" layoutY="55.0" maxHeight="30.0" prefHeight="30.0" textFill="WHITE">
+      <Label fx:id="conversaSelecionadaLabel" layoutX="400.0" layoutY="55.0" maxHeight="30.0" prefHeight="30.0" textFill="#545250">
          <font>
-            <Font name="Arial" size="24.0" />
+            <Font name="Arial Bold" size="24.0" />
          </font>
       </Label>
       <Button layoutX="261.0" layoutY="60.0" mnemonicParsing="false" onAction="#abrirTelaEntrarConversa" prefHeight="33.0" prefWidth="33.0" styleClass="buttonAddConversas" />
@@ -44,8 +44,9 @@
       <Button layoutX="1270.0" layoutY="5.0" mnemonicParsing="false" onAction="#fecharAplicacao" prefHeight="40.0" prefWidth="40.0" styleClass="buttonFecharChat" />
       <Button layoutX="1220.0" layoutY="5.0" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" mnemonicParsing="false" onAction="#minimizarTela" prefHeight="40.0" prefWidth="40.0" styleClass="buttonMinimizar" />
       <Button fx:id="enviarButton" layoutX="1240.0" layoutY="590.0" mnemonicParsing="false" onAction="#enviarMensagem" prefHeight="55.0" prefWidth="55.0" styleClass="buttonEnviarDes" />
-      <Button layoutX="385.0" layoutY="590.0" mnemonicParsing="false" prefHeight="55.0" prefWidth="55.0" styleClass="button1Visu" />
+      <Button fx:id="button1Visu" layoutX="385.0" layoutY="590.0" mnemonicParsing="false" onAction="#alternarVisuUnica" prefHeight="55.0" prefWidth="55.0" styleClass="button1Visu" />
       <TextArea fx:id="mensagemField" disable="true" layoutX="455.0" layoutY="595.0" maxWidth="770.0" prefHeight="45.0" prefWidth="770.0" wrapText="true" />
-      <Button fx:id="opcoesConversaButton" layoutX="1269.0" layoutY="55.0" mnemonicParsing="false" onAction="#abrirMenuOpcoesConversa" prefHeight="30.0" prefWidth="31.0" styleClass="buttonOpcoesConversa" />      <Button fx:id="abrirListaMembrosButton" layoutX="1234.0" layoutY="55.0" mnemonicParsing="false" onAction="#abrirListaMembros" prefHeight="30.0" prefWidth="31.0" styleClass="buttonMembros" />
+      <Button fx:id="opcoesConversaButton" disable="true" layoutX="1269.0" layoutY="55.0" mnemonicParsing="false" onAction="#abrirMenuOpcoesConversa" prefHeight="30.0" prefWidth="31.0" styleClass="buttonOpcoesConversa" />
+      <Button fx:id="abrirListaMembrosButton" disable="true" layoutX="1234.0" layoutY="55.0" mnemonicParsing="false" onAction="#abrirListaMembros" prefHeight="30.0" prefWidth="31.0" styleClass="buttonMembros" />
    </children>
 </AnchorPane>
