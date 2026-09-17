@@ -242,10 +242,9 @@ public class Servidor extends Thread {
 
       case "UNBLOCK":
         try {
-          if (saida != null) {
-            saida.writeObject("OK: " + apdu.getDestinatario() + " foi desbloqueado.");
-            saida.flush();
-          }
+          mutex.acquire();
+          desbloquearUsuario(apdu, apdu.getNomeUsuario(), apdu.getDestinatario(), saida);
+          mutex.release();
         } catch (Exception e) {}
         break;
     } // fim do switch-case

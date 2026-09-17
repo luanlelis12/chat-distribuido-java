@@ -71,8 +71,6 @@ public class clienteController implements Initializable {
   @FXML
   private ToggleGroup tipoDeConversa;
   @FXML
-  private TextField userBlock;
-  @FXML
   private Button abrirListaMembrosButton;
   @FXML
   private Button opcoesConversaButton;
@@ -810,40 +808,6 @@ public static void receberMensagem(String mensagem, String nomeConversa, String 
   } // fim do metodo minimizarTela
 
   /*
-   * Metodo: bloquearUsuario
-   * Funcao: Bloqueia um usuario impedindo dele enviar ou receber mensagens relacionadas ao cliente
-   * Parametros: 
-   * Retorno: void
-   */
-  public void bloquearUsuario() {
-    String usuario = userBlock.getText();
-
-    if (cliente.bloquearUsuario(usuario)) {
-      System.out.println("CLIENTE - Usuario "+ usuario +" foi bloqueado!");
-    } else {
-      System.out.println("CLIENTE - Usuario "+ usuario +" nao foi bloqueado!");
-    } // fim do metodo
-
-  } // fim do metodo bloquearUsuario
-
-  /*
-   * Metodo: desbloquearUsuario
-   * Funcao: Desbloqueia um usuario, liberando ele dele enviar ou receber mensagens relacionadas ao cliente
-   * Parametros: 
-   * Retorno: void
-   */
-  public void desbloquearUsuario() {
-    String usuario = userBlock.getText();
-
-    if (cliente.desbloquearUsuario(usuario)) {
-      System.out.println("CLIENTE - Usuario "+ usuario +" foi desbloqueado!");
-    } else {
-      System.out.println("CLIENTE - Usuario "+ usuario +" nao foi desbloqueado!");
-    } // fim do metodo
-
-  } // fim do metodo desbloquearUsuario
-
-  /*
    * Metodo: abrirMenuOpcoesConversa
    * Funcao: Cria e exibe um menu dropdown abaixo do botao de opcoes da conversa
    * Parametros: event = evento de acao gerado pelo clique
@@ -876,7 +840,7 @@ public static void receberMensagem(String mensagem, String nomeConversa, String 
     
     MenuItem opcao1 = new MenuItem("Listar Usuarios");
     MenuItem opcao2 = new MenuItem("Listar Grupos");
-    MenuItem opcao3 = new MenuItem("Bloquear Usuario");
+    MenuItem opcao3 = new MenuItem("Gerenciar Bloqueios");
     
     opcao1.setOnAction(e -> {
       abrirListaUsuario();
@@ -887,6 +851,7 @@ public static void receberMensagem(String mensagem, String nomeConversa, String 
     });
     
     opcao3.setOnAction(e -> {
+      abrirTelaBloquearUsuario();
     });
     
     menuDropdown.getItems().addAll(opcao1, opcao2, opcao3);
@@ -939,5 +904,54 @@ public static void receberMensagem(String mensagem, String nomeConversa, String 
       e.printStackTrace();
     } // fim do try-catch
   } // fim do metodo abrirAlertaVisuUnica
+
+  /*
+   * Metodo: processarBloqueioUsuario
+   * Funcao: Recebe o nome do popup e bloqueia ou desbloqueia o usuario dependendo da opcao escolhida
+   */
+  public void processarBloqueioUsuario(String usuario, boolean isBloquear) {
+    if (usuario == null || usuario.trim().isEmpty()) {
+      System.out.println("CLIENTE - Nome invalido para a operacao.");
+      return;
+    }
+
+    if (isBloquear) {
+      if (cliente.bloquearUsuario(usuario)) {
+        System.out.println("CLIENTE - Usuario "+ usuario +" foi bloqueado!");
+      } else {
+        System.out.println("CLIENTE - Falha ao bloquear o usuario "+ usuario +"!");
+      }
+    } else {
+      if (cliente.desbloquearUsuario(usuario)) {
+        System.out.println("CLIENTE - Usuario "+ usuario +" foi desbloqueado!");
+      } else {
+        System.out.println("CLIENTE - Falha ao desbloquear o usuario "+ usuario +"!");
+      }
+    } 
+  } // fim do metodo processarBloqueioUsuario
+
+  /*
+   * Metodo: abrirTelaBloquearUsuario
+   * Funcao: Abre o popup para digitar o nome de quem sera bloqueado
+   */
+  public void abrirTelaBloquearUsuario() {
+    try {
+      FXMLLoader loader = new FXMLLoader(getClass().getResource("/View/bloquearUsuario.fxml"));
+      Parent root = loader.load();
+
+      bloquearUsuarioController controladorPopup = loader.getController();
+      controladorPopup.setControladorPai(this);
+
+      Stage janelaPopup = new Stage();
+      janelaPopup.setScene(new Scene(root));
+      janelaPopup.initStyle(StageStyle.UNDECORATED);
+      janelaPopup.initModality(Modality.APPLICATION_MODAL);
+      janelaPopup.show();
+
+    } catch (IOException e) {
+      System.out.println("CLIENTE - Erro: Nao foi possivel carregar a tela de bloquear usuarios.");
+      e.printStackTrace();
+    } // fim do try-catch
+  } // fim do metodo abrirTelaBloquearUsuario
 
 }

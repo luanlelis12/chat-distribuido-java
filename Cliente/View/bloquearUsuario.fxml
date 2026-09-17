@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.RadioButton?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.control.ToggleGroup?>
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.layout.Pane?>
+<?import javafx.scene.text.Font?>
+
+<AnchorPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="330.0" prefWidth="480.0" styleClass="alert" stylesheets="@style.css" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="Controller.bloquearUsuarioController">
+   <children>
+      <Button layoutX="170.0" layoutY="250.0" mnemonicParsing="false" onAction="#confirmarAcao" prefHeight="50.0" prefWidth="140.0" styleClass="buttonAlert" text="CONFIRMAR" />
+      <Button layoutX="430.0" layoutY="10.0" mnemonicParsing="false" onAction="#fecharTela" prefHeight="40.0" prefWidth="40.0" styleClass="buttonFecharChat" />
+      <Pane fx:id="barraSuperior" prefHeight="60.0" prefWidth="420.0">
+         <children>
+            <Label layoutX="20.0" layoutY="15.0" text="GERENCIAR BLOQUEIOS" textFill="WHITE">
+               <font>
+                  <Font name="System Bold" size="20.0" />
+               </font>
+            </Label>
+         </children>
+      </Pane>
+      <Label layoutX="30.0" layoutY="90.0" text="NOME DO USUÁRIO:">
+         <font>
+            <Font name="System Bold" size="18.0" />
+         </font>
+      </Label>
+      <TextField fx:id="nomeUsuarioField" layoutX="30.0" layoutY="120.0" prefHeight="30.0" prefWidth="420.0" promptText="Digite o nome do usuário" />
+      
+      <Label layoutX="30.0" layoutY="170.0" text="AÇÃO:">
+         <font>
+            <Font name="System Bold" size="18.0" />
+         </font>
+      </Label>
+      <RadioButton layoutX="120.0" layoutY="175.0" mnemonicParsing="false" selected="true" text="BLOQUEAR">
+         <toggleGroup>
+            <ToggleGroup fx:id="tipoDeAcao" />
+         </toggleGroup>
+      </RadioButton>
+      <RadioButton layoutX="240.0" layoutY="175.0" mnemonicParsing="false" text="DESBLOQUEAR" toggleGroup="$tipoDeAcao" />
+   </children>
+</AnchorPane>
