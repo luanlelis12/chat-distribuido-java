@@ -1,7 +1,7 @@
 /* ***************************************************************
 * Autor............: Luan Alves Lelis Costa
 * Matricula........: 202310352
-* Inicio...........: 12/06/2026
+* Inicio...........: 17/06/2026
 * Ultima alteracao.: 17/09/2026
 * Nome.............: ServidorTCP.java
 * Funcao...........: Lidar com conexoes confiaveis de longa duracao e gerenciar grupos e usuarios
@@ -291,17 +291,26 @@ public class ServidorTCP extends Thread {
 
   /*
    * Metodo: deslogarUsuario
-   * Funcao: Remove o usuario do map central de usuarios online
+   * Funcao: Remove o usuario da memoria central e limpa sua presenca de todos os
+   * grupos
    * Parametros: nomeUsuario = usuario a deslogar, saida = fluxo TCP
    * Retorno: void
    */
   public void deslogarUsuario(String nomeUsuario, ObjectOutputStream saida) {
     boolean removido = false;
+
+    for (ArrayList<Usuario> lista : servidor.grupos.values()) {
+      lista.removeIf(u -> u.getNome().equals(nomeUsuario));
+    } // fim do for
+
+    servidor.grupos.entrySet().removeIf(entry -> entry.getValue().isEmpty());
+
     if (servidor.usuariosOnline.containsKey(nomeUsuario)) {
       servidor.usuariosOnline.remove(nomeUsuario);
       removido = true;
-      System.out.println("SERVIDOR TCP - " + nomeUsuario + " deslogou.");
+      System.out.println("SERVIDOR TCP - " + nomeUsuario + " deslogou de todos os grupos e do sistema.");
     } // fim do if
+
     try {
       if (saida != null) {
         saida.writeObject(removido ? "OK: Logout com sucesso" : "ERRO: Usuario nao encontrado.");
@@ -310,4 +319,5 @@ public class ServidorTCP extends Thread {
     } catch (Exception e) {
     } // fim do try-catch
   } // fim do metodo deslogarUsuario
+
 }

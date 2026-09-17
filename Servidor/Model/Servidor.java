@@ -18,12 +18,12 @@ public class Servidor {
   private final int PORTA_TCP = 6789;
   private final int PORTA_UDP = 7777;
 
-  // Memoria Global Compartilhada (Tornamos publicas para os modulos acessarem)
+  // Memoria Global Compartilhada
   public Map<String, Usuario> usuariosOnline = new ConcurrentHashMap<>();
   public Map<String, ArrayList<Usuario>> grupos = new ConcurrentHashMap<>();
   public Semaphore mutex = new Semaphore(1);
 
-  // Mapas de Rastreio Nominais (Para os Ticks)
+  // Mapas de Rastreio
   public Map<String, HashSet<String>> esperadosGrupo = new ConcurrentHashMap<>();
   public Map<String, HashSet<String>> recebidosGrupo = new ConcurrentHashMap<>();
   public Map<String, HashSet<String>> lidosGrupo = new ConcurrentHashMap<>();

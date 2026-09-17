@@ -296,20 +296,26 @@ public class Cliente extends Thread {
 
   /*
    * Metodo: fazerLogout
-   * Funcao: Conecta via TCP e faz logout do usuario no servidor
-   * Parametros:
+   * Funcao: Conecta via TCP e faz logout do usuario no servidor usando a APDU oficial
+   * Parametros: nenhum
    * Retorno: void
    */
   public void fazerLogout() {
     try {
       Socket socketCliente = new Socket(ipServidor, PORTA_SERVIDOR_TCP);
+      socketCliente.setSoTimeout(3000);
       ObjectOutputStream saida = new ObjectOutputStream(socketCliente.getOutputStream());
-      saida.writeObject("LOGOUT~~" + this.nomeCliente);
       saida.flush();
+      ObjectInputStream entrada = new ObjectInputStream(socketCliente.getInputStream());
+
+      APDU apduLogout = new APDU("LOGOUT", null, this.nomeCliente, null, this.portaClienteUDP);
+      saida.writeObject(apduLogout);
+      saida.flush();
+
+      entrada.readObject(); 
       socketCliente.close();
     } catch (Exception e) {
-      System.out.println("CLIENTE - ERRO: Nao foi possivel fazer logout!");
-      e.printStackTrace();
+      System.out.println("CLIENTE - O servidor ja estava inacessivel no logout.");
     } // fim do try-catch
   } // fim do metodo fazerLogout
 

@@ -775,33 +775,19 @@ public static void receberMensagem(String mensagem, String nomeConversa, String 
 
   /*
    * Metodo: fecharAplicacao
-   * Funcao: fechar a aplicacao
-   * Parametros: fecha a
+   * Funcao: Avisa o servidor e encerra o programa limpamente
+   * Parametros: nenhum
    * Retorno: void
    */
   public void fecharAplicacao() {
     System.out.println("CLIENTE - Iniciando encerramento da aplicacao...");
-
     if (cliente != null) {
-      // listaConversas.forEach((chave, valor) -> {
-      //   System.out.println("CLIENTE - Desconectando do grupo: " + valor.getNome());
-
-      //   String grupoProcessado = processadorTexto.inserirFlagEscape(valor.getNome());
-
-      //   cliente.sairGrupo(grupoProcessado);
-      // });
-      // cliente.fazerLogout();
+      cliente.fazerLogout();
       cliente.desligarCliente();
-
-      Platform.exit();
-      // try {
-      //   Thread.sleep(1000);
-      // } catch (InterruptedException e) {
-      //   e.printStackTrace();
-      // } // fim do try-catch
     } // fim do if
-
+    
     System.out.println("CLIENTE - Aplicacao encerrada com sucesso.");
+    Platform.exit();
     System.exit(0);
   } // fim do metodo fecharAplicacao
 
