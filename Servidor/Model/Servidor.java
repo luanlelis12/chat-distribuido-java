@@ -35,9 +35,9 @@ public class Servidor {
    * Retorno: void
    */
   public void start() {
-    System.out.println("----------------------------------------");
-    System.out.println("SERVIDOR INICIADO COM ARQUITETURA DIVIDIDA");
-    System.out.println("----------------------------------------");
+    System.out.println("------------------");
+    System.out.println("SERVIDOR INICIADO");
+    System.out.println("------------------");
 
     new ServidorTCP(PORTA_TCP, this).start();
     new ServidorUDP(PORTA_UDP, this).start();

@@ -75,6 +75,9 @@ public class ServidorTCP extends Thread {
         case "LIST":
           listarGrupos(saida);
           break;
+        case "USERS":
+          listarUsuarios(saida);
+          break;
         case "MEMBERS":
           listarMembros(apdu.getNomeGrupo(), saida);
           break;
@@ -141,6 +144,24 @@ public class ServidorTCP extends Thread {
     } catch (Exception e) {
     } // fim do try-catch
   } // fim do listarGrupos
+
+  /*
+   * Metodo: listarUsuarios
+   * Funcao: Envia a string contendo os nomes de todos os usuarios online
+   * Parametros: saida = fluxo TCP
+   * Retorno: void
+   */
+  public void listarUsuarios(ObjectOutputStream saida) {
+    try {
+      String str = String.join(",", servidor.usuariosOnline.keySet());
+
+      if (saida != null) {
+        saida.writeObject("OK: " + str);
+        saida.flush();
+      } // fim do if
+    } catch (Exception e) {
+    } // fim do try-catch
+  } // fim do metodo listarUsuarios
 
   /*
    * Metodo: listarMembros
