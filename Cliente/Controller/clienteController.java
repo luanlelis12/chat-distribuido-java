@@ -78,6 +78,8 @@ public class clienteController implements Initializable {
   private Button opcoesConversaButton;
   @FXML 
   private Button button1Visu;
+  @FXML 
+  private Button buttonOpcoes;
 
   private double xOffset = 0;
   private double yOffset = 0;
@@ -702,13 +704,23 @@ public static void receberMensagem(String mensagem, String nomeConversa, String 
 
   /*
    * Metodo: abrirListaGrupos
-   * Funcao: Pede ao cliente solicitar no servidor o grupos disponiveis
+   * Funcao: Pede ao cliente solicitar no servidor os grupos disponiveis
    * Parametros:
    * Retorno: void
    */
   public void abrirListaGrupos() {
     cliente.solicitarListaGrupos();
   } // fim do metodo abrirListaGrupos
+
+  /*
+   * Metodo: abrirListaUsuario
+   * Funcao: Pede ao cliente solicitar no servidor os usuarios online
+   * Parametros:
+   * Retorno: void
+   */
+  public void abrirListaUsuario() {
+    cliente.solicitarListaUsuarios();
+  } // fim do metodo abrirListaUsuario
 
   /*
    * Metodo: abrirListaGrupos
@@ -851,6 +863,36 @@ public static void receberMensagem(String mensagem, String nomeConversa, String 
     
     menuDropdown.show(opcoesConversaButton, javafx.geometry.Side.BOTTOM, 0, 0);
   } // fim do metodo abrirMenuOpcoesConversa
+
+  /*
+   * Metodo: abrirMenuOpcoes
+   * Funcao: Cria e exibe um menu dropdown abaixo do botao de opcoes da conversa
+   * Parametros: event = evento de acao gerado pelo clique
+   * Retorno: void
+   */
+  @FXML
+  public void abrirMenuOpcoes(ActionEvent event) {
+    ContextMenu menuDropdown = new ContextMenu();
+    
+    MenuItem opcao1 = new MenuItem("Listar Usuarios");
+    MenuItem opcao2 = new MenuItem("Listar Grupos");
+    MenuItem opcao3 = new MenuItem("Bloquear Usuario");
+    
+    opcao1.setOnAction(e -> {
+      abrirListaUsuario();
+    });
+    
+    opcao2.setOnAction(e -> {
+      abrirListaGrupos();
+    });
+    
+    opcao3.setOnAction(e -> {
+    });
+    
+    menuDropdown.getItems().addAll(opcao1, opcao2, opcao3);
+    
+    menuDropdown.show(buttonOpcoes, javafx.geometry.Side.BOTTOM, 0, 0);
+  } // fim do metodo abrirMenuOpcoes
 
   /*
    * Metodo: alternarVisuUnica

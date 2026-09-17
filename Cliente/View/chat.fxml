@@ -19,7 +19,7 @@
          </font>
       </Label>
       <Button layoutX="261.0" layoutY="60.0" mnemonicParsing="false" onAction="#abrirTelaEntrarConversa" prefHeight="33.0" prefWidth="33.0" styleClass="buttonAddConversas" />
-      <Button layoutX="297.0" layoutY="60.0" mnemonicParsing="false" prefHeight="33.0" prefWidth="33.0" styleClass="buttonOpcoes" />
+      <Button fx:id="buttonOpcoes" layoutX="297.0" layoutY="60.0" mnemonicParsing="false" onAction="#abrirMenuOpcoes" prefHeight="33.0" prefWidth="33.0" styleClass="buttonOpcoes" />
       <ScrollPane fitToWidth="true" layoutX="40.0" layoutY="140.0" prefHeight="490.0" prefWidth="290.0">
         <content>
           <AnchorPane maxWidth="1.7976931348623157E308" minHeight="0.0" minWidth="0.0" prefWidth="288.0">
