@@ -9,7 +9,7 @@
 <?import javafx.scene.layout.Pane?>
 <?import javafx.scene.text.Font?>
 
-<AnchorPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="360.0" prefWidth="480.0" styleClass="alert" stylesheets="@style.css" xmlns="http://javafx.com/javafx/25" xmlns:fx="http://javafx.com/fxml/1" fx:controller="Controller.entrarConversaController">
+<AnchorPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="360.0" prefWidth="480.0" styleClass="alert" stylesheets="@style.css" xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1" fx:controller="Controller.entrarConversaController">
    <children>
       <Button layoutX="170.0" layoutY="280.0" mnemonicParsing="false" onAction="#confirmarEntrada" prefHeight="50.0" prefWidth="140.0" styleClass="buttonAlert" text="ENTRAR" />
       <Button layoutX="430.0" layoutY="10.0" mnemonicParsing="false" onAction="#fecharTela" prefHeight="40.0" prefWidth="40.0" styleClass="buttonFecharChat" />

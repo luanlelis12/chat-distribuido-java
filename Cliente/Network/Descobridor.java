@@ -23,6 +23,7 @@ public class Descobridor {
     try {
       broadcasts.add(InetAddress.getByName("255.255.255.255"));
     } catch (Exception e) {
+      System.err.println("CLIENTE - AVISO: Nao foi possivel adicionar broadcast padrao: " + e.getMessage());
     } // fim do try-catch
 
     try (DatagramSocket socket = new DatagramSocket()) {
@@ -39,6 +40,7 @@ public class Descobridor {
           DatagramPacket pacoteGrito = new DatagramPacket(pedido, pedido.length, broadcastAddr, 8888);
           socket.send(pacoteGrito);
         } catch (Exception e) {
+          System.err.println("CLIENTE - AVISO: broadcast falhou para " + broadcastAddr.getHostAddress() + ": " + e.getMessage());
         } // fim do try-catch
       } // fim do for
 
@@ -114,6 +116,7 @@ public class Descobridor {
         } // fim do for
       } // fim do while
     } catch (Exception e) {
+      System.err.println("CLIENTE - AVISO: Falha ao listar interfaces de rede: " + e.getMessage());
     } // fim do try-catch
     return lista;
   } // fim do metodo coletarBroadCasts

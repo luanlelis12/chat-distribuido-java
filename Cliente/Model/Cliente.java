@@ -15,8 +15,10 @@ import java.io.ObjectOutputStream;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.net.NetworkInterface;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.Enumeration;
 
 import Controller.clienteController;
 
@@ -38,11 +40,12 @@ public class Cliente extends Thread {
   private InetAddress ipCliente;
   private InetAddress ipServidor;
   private DatagramSocket endpointCliente;
+  private volatile boolean escutaUDPAtiva = false;
 
   public Cliente(String nomeCliente, String ipServidor) {
     try {
       this.nomeCliente = nomeCliente;
-      this.ipCliente = InetAddress.getLocalHost();
+      this.ipCliente = descobrirIpLocal();
       this.ipServidor = InetAddress.getByName(ipServidor);
 
       this.portaClienteUDP = 5000 + (int) (Math.random() * 1000);
@@ -56,17 +59,59 @@ public class Cliente extends Thread {
   } // fim do construtor
 
   /*
+   * Metodo: descobrirIpLocal
+   * Funcao: Detecta o IP local do cliente para enviar ao servidor
+   * Parametros: nenhum
+   * Retorno: void
+   */
+  private InetAddress descobrirIpLocal() {
+    try {
+      Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+      while (interfaces.hasMoreElements()) {
+        NetworkInterface iface = interfaces.nextElement();
+        if (!iface.isUp() || iface.isLoopback() || iface.isVirtual()) {
+          continue;
+        } // fim do if
+
+        Enumeration<InetAddress> enderecos = iface.getInetAddresses();
+        while (enderecos.hasMoreElements()) {
+          InetAddress endereco = enderecos.nextElement();
+          if (!endereco.isLoopbackAddress() && !endereco.isAnyLocalAddress()) {
+            return endereco;
+          } // fim do if
+        } // fim do while
+      } // fim do while
+    } catch (Exception e) {
+      System.out.println("CLIENTE - AVISO: Nao foi possivel detectar IP local, usando localhost como fallback.");
+    } // fim do try-catch
+
+    try {
+      return InetAddress.getLocalHost();
+    } catch (Exception e) {
+      try {
+        return InetAddress.getByName("127.0.0.1");
+      } catch (Exception ex) {
+        return null;
+      } // fim do try-catch
+    } // fim do try-catch
+  }
+
+  /*
    * Metodo: start
    * Funcao: Inicia a Thread que escuta mensagens UDP (objetos APDU) recebidas do
    * servidor
    * Parametros: nenhum
    * Retorno: void
    */
-  @Override
-  public synchronized void start() {
+  public synchronized void iniciarEscutaUDP() {
+    if (escutaUDPAtiva || endpointCliente == null || endpointCliente.isClosed()) {
+      return;
+    } // fim do if
+
+    escutaUDPAtiva = true;
     new Thread(() -> {
       try {
-        while (true) {
+        while (!endpointCliente.isClosed()) {
           byte[] dadosEntrada = new byte[8192];
           DatagramPacket pacoteRecebido = new DatagramPacket(dadosEntrada, dadosEntrada.length);
           endpointCliente.receive(pacoteRecebido);
@@ -83,15 +128,19 @@ public class Cliente extends Thread {
           }).start();
         } // fim do while
       } catch (java.net.SocketException e) {
-        if (endpointCliente.isClosed()) {
+        if (endpointCliente != null && endpointCliente.isClosed()) {
           System.out.println("CLIENTE - Escuta UDP encerrada pelo usuario (Logout).");
-        } // fim do if
+        } else {
+          System.out.println("CLIENTE - ERRO: socket UDP foi fechado inesperadamente.");
+        }
       } catch (Exception e) {
         System.out.println("CLIENTE - ERRO ao receber a mensagem!");
         e.printStackTrace();
+      } finally {
+        escutaUDPAtiva = false;
       } // fim do try-catch
     }).start();
-  } // fim do metodo start
+  } // fim do metodo iniciarEscutaUDP
 
   /*
    * Metodo: processarApdu
@@ -105,22 +154,21 @@ public class Cliente extends Thread {
     switch (operacao) {
       case "SEND":
         enviarConfirmacao(apdu.getIdMensagem(), 2, apdu.getNomeGrupo(), apdu.getNomeUsuario());
-        // Passa FALSE no final, pois e uma mensagem normal
-        Controller.clienteController.receberMensagem(apdu.getTextoMensagem(), apdu.getNomeGrupo(), apdu.getNomeUsuario(), GRUPO, false);
+        Controller.clienteController.receberMensagem(apdu.getTextoMensagem(), apdu.getNomeGrupo(), apdu.getNomeUsuario(), GRUPO, false, apdu.getIdMensagem());  
         break;
 
       case "SENDPVT":
         enviarConfirmacao(apdu.getIdMensagem(), 2, null, apdu.getNomeUsuario());
-        Controller.clienteController.receberMensagem(apdu.getTextoMensagem(), apdu.getNomeUsuario(), apdu.getNomeUsuario(), PRIVADO, false);
+        Controller.clienteController.receberMensagem(apdu.getTextoMensagem(), apdu.getNomeUsuario(), apdu.getNomeUsuario(), PRIVADO, false, apdu.getIdMensagem());
         break;
 
       case "SENDVU":
         if (apdu.getDestinatario() != null) {
           enviarConfirmacao(apdu.getIdMensagem(), 2, null, apdu.getNomeUsuario());
-          Controller.clienteController.receberMensagem(apdu.getTextoMensagem(), apdu.getNomeUsuario(), apdu.getNomeUsuario(), PRIVADO, true);
+          Controller.clienteController.receberMensagem(apdu.getTextoMensagem(), apdu.getNomeUsuario(), apdu.getNomeUsuario(), PRIVADO, true, apdu.getIdMensagem());
         } else {
           enviarConfirmacao(apdu.getIdMensagem(), 2, apdu.getNomeGrupo(), apdu.getNomeUsuario());
-          Controller.clienteController.receberMensagem(apdu.getTextoMensagem(), apdu.getNomeGrupo(), apdu.getNomeUsuario(), GRUPO, true);
+          Controller.clienteController.receberMensagem(apdu.getTextoMensagem(), apdu.getNomeGrupo(), apdu.getNomeUsuario(), GRUPO, true, apdu.getIdMensagem());
         } // fim do if
         break;
         
@@ -139,30 +187,42 @@ public class Cliente extends Thread {
    * Retorno: boolean indicando se a entrada foi aprovada
    */
   public boolean entrarGrupo(String grupo) {
+    String grupoNormalizado = grupo != null ? grupo.trim() : "";
+    if (grupoNormalizado.isEmpty()) {
+      System.out.println("CLIENTE - ERRO: Nome do grupo vazio.");
+      return false;
+    } // fim do if
+
     try {
-      Socket socketCliente = new Socket(ipServidor, PORTA_SERVIDOR_TCP);
+      try (Socket socketCliente = new Socket(ipServidor, PORTA_SERVIDOR_TCP)) {
       socketCliente.setSoTimeout(5000);
 
       ObjectOutputStream saida = new ObjectOutputStream(socketCliente.getOutputStream());
       saida.flush();
       ObjectInputStream entrada = new ObjectInputStream(socketCliente.getInputStream());
 
-      APDU apdu = new APDU("JOIN", grupo, this.nomeCliente, null, this.portaClienteUDP);
+      APDU apdu = new APDU("JOIN", grupoNormalizado, this.nomeCliente.trim(), null, this.portaClienteUDP);
 
       System.out.println("CLIENTE - Enviando APDU JOIN para o servidor...");
       saida.writeObject(apdu);
       saida.flush();
 
-      String resposta = (String) entrada.readObject();
+      Object respostaRecebida = entrada.readObject();
       socketCliente.close();
 
-      return resposta != null && resposta.startsWith("OK:");
+      if (!(respostaRecebida instanceof String)) {
+        return false;
+      } // fim do if
+
+      String resposta = ((String) respostaRecebida).trim();
+      return resposta.startsWith("OK:");
+      }
 
     } catch (java.net.SocketTimeoutException e) {
       System.out.println("CLIENTE - ERRO: Tempo limite excedido. O Servidor nao respondeu ao JOIN.");
       return false;
     } catch (Exception e) {
-      System.out.println("CLIENTE - ERRO: Falha na conexao com o servidor!");
+      System.out.println("CLIENTE - ERRO: Falha no JOIN: " + e.getMessage());
       return false;
     } // fim do try-catch
   } // fim do metodo entrarGrupo
@@ -176,7 +236,7 @@ public class Cliente extends Thread {
    */
   public boolean sairGrupo(String grupo) {
     try {
-      Socket socketCliente = new Socket(ipServidor, PORTA_SERVIDOR_TCP);
+      try (Socket socketCliente = new Socket(ipServidor, PORTA_SERVIDOR_TCP)) {
       socketCliente.setSoTimeout(5000);
 
       ObjectOutputStream saida = new ObjectOutputStream(socketCliente.getOutputStream());
@@ -195,12 +255,13 @@ public class Cliente extends Thread {
 
       // O novo servidor responde "OK: Saiu do grupo com sucesso"
       return resposta != null && resposta.startsWith("OK:");
+      }
 
     } catch (java.net.SocketTimeoutException e) {
       System.out.println("CLIENTE - ERRO: Tempo limite excedido. O Servidor nao respondeu ao LEAVE.");
       return false;
     } catch (Exception e) {
-      System.out.println("CLIENTE - ERRO: Falha na conexao com o servidor!");
+      System.out.println("CLIENTE - ERRO: Falha no LEAVE: " + e.getMessage());
       return false;
     } // fim do try-catch
   } // fim do metodo sairGrupo
@@ -272,7 +333,7 @@ public class Cliente extends Thread {
    */
   public boolean fazerLogin() {
     try {
-      Socket socketCliente = new Socket(ipServidor, PORTA_SERVIDOR_TCP);
+      try (Socket socketCliente = new Socket(ipServidor, PORTA_SERVIDOR_TCP)) {
       ObjectOutputStream saida = new ObjectOutputStream(socketCliente.getOutputStream());
       saida.flush();
       ObjectInputStream entrada = new ObjectInputStream(socketCliente.getInputStream());
@@ -286,10 +347,10 @@ public class Cliente extends Thread {
       socketCliente.close();
 
       return resposta != null && resposta.startsWith("OK: registrado");
+      }
 
     } catch (Exception e) {
-      System.out.println("CLIENTE - ERRO: Nao foi possivel comunicar com o servidor!");
-      e.printStackTrace();
+      System.out.println("CLIENTE - ERRO: Falha no LOGIN: " + e.getMessage());
       return false;
     }
   } // fim do metodo fazerLogin
@@ -302,7 +363,7 @@ public class Cliente extends Thread {
    */
   public void fazerLogout() {
     try {
-      Socket socketCliente = new Socket(ipServidor, PORTA_SERVIDOR_TCP);
+      try (Socket socketCliente = new Socket(ipServidor, PORTA_SERVIDOR_TCP)) {
       socketCliente.setSoTimeout(3000);
       ObjectOutputStream saida = new ObjectOutputStream(socketCliente.getOutputStream());
       saida.flush();
@@ -313,9 +374,9 @@ public class Cliente extends Thread {
       saida.flush();
 
       entrada.readObject(); 
-      socketCliente.close();
+      }
     } catch (Exception e) {
-      System.out.println("CLIENTE - O servidor ja estava inacessivel no logout.");
+      System.out.println("CLIENTE - O servidor ja estava inacessivel no logout: " + e.getMessage());
     } // fim do try-catch
   } // fim do metodo fazerLogout
 
@@ -448,7 +509,6 @@ public class Cliente extends Thread {
       saida.flush();
       ObjectInputStream entrada = new ObjectInputStream(socketCliente.getInputStream());
 
-      // Pede a lista global de usuarios usando a APDU "USERS"
       APDU apdu = new APDU("USERS", null, this.nomeCliente, null, this.portaClienteUDP);
       System.out.println("CLIENTE - Verificando se o usuario " + nomeUsuarioDestino + " existe...");
       saida.writeObject(apdu);
@@ -458,7 +518,8 @@ public class Cliente extends Thread {
       socketCliente.close();
 
       if (resposta != null && resposta.startsWith("OK: ")) {
-        return resposta.contains(nomeUsuarioDestino + ",");
+        ArrayList<String> usuarios = extrairListaDaResposta(resposta);
+        return usuarios.contains(nomeUsuarioDestino.trim());
       } // fim do if
       return false;
 
@@ -560,6 +621,10 @@ public class Cliente extends Thread {
    * Retorno: void
    */
   public void enviarConfirmacao(String idMensagem, int status, String nomeGrupo, String donoDaMensagem) {
+    if (idMensagem == null || idMensagem.trim().isEmpty()) {
+      return;
+    }
+
     try {
       // O APDU de confirmacao exige saber quem e o dono original para que o servidor possa encaminhar corretamente
       APDU apduConfirm = new APDU("CONFIRM", idMensagem, status, this.nomeCliente, nomeGrupo, donoDaMensagem);
@@ -571,7 +636,10 @@ public class Cliente extends Thread {
   } // fim do metodo enviarConfirmacao
 
   public void desligarCliente() {
-    endpointCliente.close();
+    escutaUDPAtiva = false;
+    if (endpointCliente != null && !endpointCliente.isClosed()) {
+      endpointCliente.close();
+    }
   }
 
   public int getPORTA_SERVIDOR_UDP() {

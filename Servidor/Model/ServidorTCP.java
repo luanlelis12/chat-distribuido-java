@@ -40,13 +40,13 @@ public class ServidorTCP extends Thread {
   @Override
   public void run() {
     try (ServerSocket serverSocket = new ServerSocket(porta)) {
-      System.out.println("SERVIDOR TCP - Escutando na porta " + porta);
+      System.out.println("[TCP] Escutando na porta " + porta);
       while (true) {
         Socket clientSocket = serverSocket.accept();
         new Thread(() -> processarConexao(clientSocket)).start();
       } // fim do while
     } catch (Exception e) {
-      System.out.println("SERVIDOR TCP - Erro Critico na porta " + porta);
+      System.out.println("[TCP-ERRO] Erro Critico na porta " + porta);
     } // fim do try-catch
   } // fim do metodo run
 
@@ -58,7 +58,7 @@ public class ServidorTCP extends Thread {
    * Retorno: void
    */
   private void processarConexao(Socket socket) {
-    try {
+    try (Socket socketCliente = socket) {
       ObjectInputStream entrada = new ObjectInputStream(socket.getInputStream());
       ObjectOutputStream saida = new ObjectOutputStream(socket.getOutputStream());
       saida.flush();
@@ -66,43 +66,69 @@ public class ServidorTCP extends Thread {
       APDU apdu = (APDU) entrada.readObject();
       String operacao = apdu.getOperacao();
 
-      servidor.mutex.acquire(); // Bloqueia a memoria
+      System.out.println("\n[TCP] >>> Requisicao recebida: [" + operacao + "] de '" + apdu.getNomeUsuario() + "'");
 
-      switch (operacao) {
-        case "REGISTER":
-          registrarUsuario(apdu.getNomeUsuario(), socket.getInetAddress(), apdu.getPortaClienteUDP(), saida);
-          break;
-        case "LIST":
-          listarGrupos(saida);
-          break;
-        case "USERS":
-          listarUsuarios(saida);
-          break;
-        case "MEMBERS":
-          listarMembros(apdu.getNomeGrupo(), saida);
-          break;
-        case "BLOCK":
-          bloquearUsuario(apdu.getNomeUsuario(), apdu.getDestinatario(), saida);
-          break;
-        case "UNBLOCK":
-          desbloquearUsuario(apdu.getNomeUsuario(), apdu.getDestinatario(), saida);
-          break;
-        case "JOIN":
-          inserirNoGrupo(apdu.getNomeGrupo(), apdu.getNomeUsuario(), saida);
-          break;
-        case "LEAVE":
-          sairDoGrupo(apdu.getNomeGrupo(), apdu.getNomeUsuario(), saida);
-          break;
-        case "LOGOUT":
-          deslogarUsuario(apdu.getNomeUsuario(), saida);
-          break;
-      } // fim do switch-case
-
-      servidor.mutex.release(); // Libera a memoria
+      servidor.mutex.acquire();
+      try {
+        switch (operacao) {
+          case "REGISTER":
+            registrarUsuario(apdu.getNomeUsuario(), socket.getInetAddress(), apdu.getPortaClienteUDP(), saida);
+            break;
+          case "LIST":
+            listarGrupos(saida);
+            break;
+          case "USERS":
+            listarUsuarios(saida);
+            break;
+          case "MEMBERS":
+            listarMembros(apdu.getNomeGrupo(), saida);
+            break;
+          case "BLOCK":
+            bloquearUsuario(apdu.getNomeUsuario(), apdu.getDestinatario(), saida);
+            break;
+          case "UNBLOCK":
+            desbloquearUsuario(apdu.getNomeUsuario(), apdu.getDestinatario(), saida);
+            break;
+          case "JOIN":
+            inserirNoGrupo(apdu.getNomeGrupo(), apdu.getNomeUsuario(), saida);
+            break;
+          case "LEAVE":
+            sairDoGrupo(apdu.getNomeGrupo(), apdu.getNomeUsuario(), saida);
+            break;
+          case "LOGOUT":
+            deslogarUsuario(apdu.getNomeUsuario(), saida);
+            break;
+        } // fim do switch-case
+      } finally {
+        servidor.mutex.release(); // Libera a memoria
+      } // fim do try-finally
 
     } catch (Exception e) {
+      System.err.println("[TCP-ERRO] Erro ao processar requisicao: " + e.getMessage());
+      e.printStackTrace();
     } // fim do try-catch
   } // fim do metodo processarConexao
+
+  /*
+   * Metodo: validarNomeUsuario
+   * Funcao: Valida o nome de usuario
+   * Parametros: nome = nome de usuario
+   * Retorno: boolean
+   */
+  private boolean validarNomeUsuario(String nome) {
+    return nome != null && nome.trim().length() >= 3 && nome.trim().length() <= 20
+        && nome.matches("[a-zA-Z0-9_]+") && !nome.equals("SERVIDOR");
+  } // fim do metodo validarNomeUsuario
+
+  /*
+   * Metodo: validarTextoMensagem
+   * Funcao: Valida o texto de uma mensagem
+   * Parametros: texto = texto da mensagem
+   * Retorno: boolean
+   */
+  private boolean validarTextoMensagem(String texto) {
+    return texto != null && !texto.trim().isEmpty() && texto.trim().length() <= 500;
+  }
 
   /*
    * Metodo: registrarUsuario
@@ -114,17 +140,22 @@ public class ServidorTCP extends Thread {
   public void registrarUsuario(String nome, InetAddress ip, int portaUDP, ObjectOutputStream saida) {
     boolean registrado = false;
     try {
-      if (nome != null && !nome.trim().isEmpty() && !servidor.usuariosOnline.containsKey(nome)) {
-        Usuario novoUsuario = new Usuario(ip, nome, portaUDP);
-        servidor.usuariosOnline.put(nome, novoUsuario);
+      String nomeValido = nome != null ? nome.trim() : "";
+      if (validarNomeUsuario(nomeValido) && !servidor.usuariosOnline.containsKey(nomeValido)) {
+        Usuario novoUsuario = new Usuario(ip, nomeValido, portaUDP);
+        servidor.usuariosOnline.put(nomeValido, novoUsuario);
         registrado = true;
-        System.out.println("SERVIDOR TCP - " + nome + " logou no sistema.");
+        System.out.println("      -> SUCESSO: O usuario '" + nomeValido + "' foi registrado no sistema.");
+      } else {
+        System.out.println("      -> NEGADO: O nome '" + nome + "' ja esta em uso ou e invalido.");
       } // fim do if
       if (saida != null) {
         saida.writeObject(registrado ? "OK: registrado com sucesso" : "ERRO: nome de usuario em uso");
         saida.flush();
       } // fim do if
     } catch (Exception e) {
+      System.err.println("[TCP-ERRO] Falha ao registrar usuario: " + e.getMessage());
+      e.printStackTrace();
     } // fim do try-catch
   } // fim do registrarUsuario
 
@@ -136,12 +167,14 @@ public class ServidorTCP extends Thread {
    */
   public void listarGrupos(ObjectOutputStream saida) {
     try {
+      System.out.println("      -> Enviando lista de grupos disponiveis.");
       String str = String.join(",", servidor.grupos.keySet());
       if (saida != null) {
         saida.writeObject("OK: " + str);
         saida.flush();
       } // fim do if
     } catch (Exception e) {
+      System.err.println("[TCP-ERRO] Falha ao listar grupos: " + e.getMessage());
     } // fim do try-catch
   } // fim do listarGrupos
 
@@ -153,13 +186,14 @@ public class ServidorTCP extends Thread {
    */
   public void listarUsuarios(ObjectOutputStream saida) {
     try {
+      System.out.println("      -> Enviando lista global de usuarios conectados.");
       String str = String.join(",", servidor.usuariosOnline.keySet());
-
       if (saida != null) {
         saida.writeObject("OK: " + str);
         saida.flush();
       } // fim do if
     } catch (Exception e) {
+      System.err.println("[TCP-ERRO] Falha ao listar usuarios: " + e.getMessage());
     } // fim do try-catch
   } // fim do metodo listarUsuarios
 
@@ -171,6 +205,7 @@ public class ServidorTCP extends Thread {
    */
   public void listarMembros(String nomeGrupo, ObjectOutputStream saida) {
     try {
+      System.out.println("      -> Enviando membros atuais do grupo '" + nomeGrupo + "'.");
       if (servidor.grupos.containsKey(nomeGrupo)) {
         ArrayList<String> nomesUsuarios = new ArrayList<>();
         for (Usuario u : servidor.grupos.get(nomeGrupo)) {
@@ -182,6 +217,7 @@ public class ServidorTCP extends Thread {
         } // fim do if
       } // fim do if
     } catch (Exception e) {
+      System.err.println("[TCP-ERRO] Falha ao listar membros do grupo '" + nomeGrupo + "': " + e.getMessage());
     } // fim do try-catch
   } // fim do listarMembros
 
@@ -194,21 +230,27 @@ public class ServidorTCP extends Thread {
    * Retorno: void
    */
   public void inserirNoGrupo(String nomeGrupo, String nomeUsuario, ObjectOutputStream saida) {
-    Usuario usuarioReal = servidor.usuariosOnline.get(nomeUsuario);
-    boolean sucesso = true;
+    String nomeGrupoValido = nomeGrupo != null ? nomeGrupo.trim() : "";
+    String nomeUsuarioValido = nomeUsuario != null ? nomeUsuario.trim() : "";
+    Usuario usuarioReal = servidor.usuariosOnline.get(nomeUsuarioValido);
+    boolean sucesso = false;
+
     if (usuarioReal != null) {
-      if (servidor.grupos.containsKey(nomeGrupo)) {
-        if (!servidor.grupos.get(nomeGrupo).contains(usuarioReal)) {
-          servidor.grupos.get(nomeGrupo).add(usuarioReal);
-        } else
+      sucesso = true;
+      if (servidor.grupos.containsKey(nomeGrupoValido)) {
+        if (!servidor.grupos.get(nomeGrupoValido).contains(usuarioReal)) {
+          servidor.grupos.get(nomeGrupoValido).add(usuarioReal);
+          System.out.println("      -> SUCESSO: '" + nomeUsuarioValido + "' entrou no grupo existente '" + nomeGrupoValido + "'.");
+        } else {
           sucesso = false;
+        } // fim do if
       } else {
         ArrayList<Usuario> listaUsuario = new ArrayList<>();
         listaUsuario.add(usuarioReal);
-        servidor.grupos.put(nomeGrupo, listaUsuario);
+        servidor.grupos.put(nomeGrupoValido, listaUsuario);
+        System.out.println("      -> SUCESSO: O grupo '" + nomeGrupoValido + "' foi criado e '" + nomeUsuarioValido + "' entrou.");
       } // fim do if
-    } else
-      sucesso = false;
+    } // fim do if
 
     try {
       if (saida != null) {
@@ -216,6 +258,8 @@ public class ServidorTCP extends Thread {
         saida.flush();
       } // fim do if
     } catch (Exception e) {
+      System.err.println("[TCP-ERRO] Falha ao inserir usuario no grupo: " + e.getMessage());
+      e.printStackTrace();
     } // fim do try-catch
   } // fim do inserirNoGrupo
 
@@ -231,8 +275,12 @@ public class ServidorTCP extends Thread {
     if (servidor.grupos.containsKey(nomeGrupo)) {
       ArrayList<Usuario> lista = servidor.grupos.get(nomeGrupo);
       removido = lista.removeIf(u -> u.getNome().equals(nomeUsuario));
-      if (lista.isEmpty())
+      if (lista.isEmpty()) {
         servidor.grupos.remove(nomeGrupo);
+        System.out.println("      -> O grupo '" + nomeGrupo + "' ficou vazio e foi deletado da memoria.");
+      } else if (removido) {
+        System.out.println("      -> SUCESSO: '" + nomeUsuario + "' saiu do grupo '" + nomeGrupo + "'.");
+      } // fim do if
     } // fim do if
     try {
       if (saida != null) {
@@ -240,6 +288,7 @@ public class ServidorTCP extends Thread {
         saida.flush();
       } // fim do if
     } catch (Exception e) {
+      System.err.println("[TCP-ERRO] Falha ao responder saida do grupo: " + e.getMessage());
     } // fim do try-catch
   } // fim do sairDoGrupo
 
@@ -253,9 +302,10 @@ public class ServidorTCP extends Thread {
   public void bloquearUsuario(String nomeUsuario, String alvo, ObjectOutputStream saida) {
     boolean bloqueado = false;
     Usuario quemPediu = servidor.usuariosOnline.get(nomeUsuario);
-    if (quemPediu != null && alvo != null && !alvo.trim().isEmpty()) {
+    if (quemPediu != null && alvo != null && validarNomeUsuario(alvo.trim())) {
       quemPediu.addBloqueados(alvo.trim());
       bloqueado = true;
+      System.out.println("      -> SUCESSO: '" + nomeUsuario + "' acabou de BLOQUEAR '" + alvo + "'.");
     } // fim do if
     try {
       if (saida != null) {
@@ -263,6 +313,8 @@ public class ServidorTCP extends Thread {
         saida.flush();
       } // fim do if
     } catch (Exception e) {
+      System.err.println("[TCP-ERRO] Falha ao bloquear usuario: " + e.getMessage());
+      e.printStackTrace();
     } // fim do try-catch
   } // fim do bloquearUsuario
 
@@ -276,9 +328,10 @@ public class ServidorTCP extends Thread {
   public void desbloquearUsuario(String nomeUsuario, String alvo, ObjectOutputStream saida) {
     boolean desbloqueado = false;
     Usuario quemPediu = servidor.usuariosOnline.get(nomeUsuario);
-    if (quemPediu != null && alvo != null && !alvo.trim().isEmpty()) {
+    if (quemPediu != null && alvo != null && validarNomeUsuario(alvo.trim())) {
       quemPediu.getBloqueados().remove(alvo.trim());
       desbloqueado = true;
+      System.out.println("      -> SUCESSO: '" + nomeUsuario + "' acabou de DESBLOQUEAR '" + alvo + "'.");
     } // fim do if
     try {
       if (saida != null) {
@@ -286,6 +339,8 @@ public class ServidorTCP extends Thread {
         saida.flush();
       } // fim do if
     } catch (Exception e) {
+      System.err.println("[TCP-ERRO] Falha ao desbloquear usuario: " + e.getMessage());
+      e.printStackTrace();
     } // fim do try-catch
   } // fim do desbloquearUsuario
 
@@ -299,16 +354,18 @@ public class ServidorTCP extends Thread {
   public void deslogarUsuario(String nomeUsuario, ObjectOutputStream saida) {
     boolean removido = false;
 
-    for (ArrayList<Usuario> lista : servidor.grupos.values()) {
-      lista.removeIf(u -> u.getNome().equals(nomeUsuario));
-    } // fim do for
+    if (nomeUsuario != null && validarNomeUsuario(nomeUsuario)) {
+      for (ArrayList<Usuario> lista : servidor.grupos.values()) {
+        lista.removeIf(u -> u.getNome().equals(nomeUsuario));
+      } // fim do for
 
-    servidor.grupos.entrySet().removeIf(entry -> entry.getValue().isEmpty());
+      servidor.grupos.entrySet().removeIf(entry -> entry.getValue().isEmpty());
 
-    if (servidor.usuariosOnline.containsKey(nomeUsuario)) {
-      servidor.usuariosOnline.remove(nomeUsuario);
-      removido = true;
-      System.out.println("SERVIDOR TCP - " + nomeUsuario + " deslogou de todos os grupos e do sistema.");
+      if (servidor.usuariosOnline.containsKey(nomeUsuario)) {
+        servidor.usuariosOnline.remove(nomeUsuario);
+        removido = true;
+        System.out.println("      -> FAXINA DE LOGOUT: O usuario '" + nomeUsuario + "' foi apagado de todos os grupos e do sistema.");
+      } // fim do if
     } // fim do if
 
     try {
@@ -317,6 +374,8 @@ public class ServidorTCP extends Thread {
         saida.flush();
       } // fim do if
     } catch (Exception e) {
+      System.err.println("[TCP-ERRO] Falha ao processar logout: " + e.getMessage());
+      e.printStackTrace();
     } // fim do try-catch
   } // fim do metodo deslogarUsuario
 

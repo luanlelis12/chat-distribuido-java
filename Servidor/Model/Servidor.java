@@ -71,7 +71,7 @@ public class Servidor {
           } // fim do if
         } // fim do while
       } catch (Exception e) {
-      }
+      } // fim do try-catch
     }).start();
   } // fim do metodo iniciarServidorDescoberta
 

@@ -74,9 +74,9 @@ public class clienteController implements Initializable {
   private Button abrirListaMembrosButton;
   @FXML
   private Button opcoesConversaButton;
-  @FXML 
+  @FXML
   private Button button1Visu;
-  @FXML 
+  @FXML
   private Button buttonOpcoes;
 
   private double xOffset = 0;
@@ -87,10 +87,11 @@ public class clienteController implements Initializable {
 
   private static clienteController instancia;
   private static Cliente cliente;
-  
-  private static Pair<String, String> conversaSelecionada = null; // Pair<nomeDaConversa,tipoDeConversa>
-  private HashMap<Pair<String, String>, Conversa> listaConversas = new HashMap<>(); // <Pair<nomeDaConversa,tipoDeConversa>,Conversa>
-  private static HashMap<String, Label> mapaTicks = new HashMap<>(); // Mapa para guardar os ícones dos ticks
+
+  private Pair<String, String> conversaSelecionada = null; // Pair<nomeDaConversa,tipoDeConversa>
+  private final HashMap<Pair<String, String>, Conversa> listaConversas = new HashMap<>(); // <Pair<nomeDaConversa,tipoDeConversa>,Conversa>
+  private final HashMap<String, Label> mapaTicks = new HashMap<>(); // Mapa para guardar os ícones dos ticks
+  private final HashMap<Pair<String, String>, ArrayList<String[]>> mensagensNaoLidas = new HashMap<>(); 
   private boolean isVisuUnica = false; // Controle da Visualizacao Unica
 
   @Override
@@ -160,7 +161,7 @@ public class clienteController implements Initializable {
       // Verifica se o login do cliente foi aprovada
       if (aprovado) {
         System.out.println("CLIENTE - Login aprovado!");
-        cliente.start();
+        cliente.iniciarEscutaUDP();
         return true;
       } else {
         cliente.desligarCliente();
@@ -181,12 +182,14 @@ public class clienteController implements Initializable {
    * Retorno: void
    */
   public void enviarMensagem() {
-    if (conversaSelecionada == null) return;
+    if (conversaSelecionada == null)
+      return;
 
     String mensagem = mensagemField.getText();
     mensagemField.clear();
 
-    if (mensagem.equals("")) return;
+    if (mensagem.equals(""))
+      return;
     System.out.println("CLIENTE - enviando mensagem \"" + mensagem + "\"");
 
     String msgId = null;
@@ -215,7 +218,11 @@ public class clienteController implements Initializable {
    * tipoConversa = se foi mandada para um grupo ou no privado
    * Retorno: void
    */
-public static void receberMensagem(String mensagem, String nomeConversa, String nomeRemetente, String tipoConversa, boolean isVisuUnica) {
+  public static void receberMensagem(String mensagem, String nomeConversa, String nomeRemetente, String tipoConversa,
+      boolean isVisuUnica, String idMensagem) {
+    if (instancia == null) {
+      return;
+    } // fim do if
 
     final String nomeConversaFinal = (nomeConversa != null) ? nomeConversa.trim() : "";
     final String msgFinal = (mensagem != null) ? mensagem.trim() : "";
@@ -224,6 +231,10 @@ public static void receberMensagem(String mensagem, String nomeConversa, String 
     final String chaveConversaStr = tipoConversa.equals(GRUPO) ? nomeConversaFinal : nomeFinal;
 
     Platform.runLater(() -> {
+      if (instancia == null) {
+        return;
+      } // fim do if
+
       HBox balaoDeDialogo;
 
       // Verifica quem enviou a mensagem
@@ -241,20 +252,28 @@ public static void receberMensagem(String mensagem, String nomeConversa, String 
 
       Conversa conversa = instancia.listaConversas.get(chaveRecebida);
 
-      if (conversaSelecionada == null || !conversaSelecionada.equals(chaveRecebida)) {
+      if (instancia.conversaSelecionada == null || !instancia.conversaSelecionada.equals(chaveRecebida)) {
         int contagemAtual = conversa.getNotificacoes();
         conversa.setNotificacoes(contagemAtual + 1);
         System.out.println("CLIENTE - " + chaveConversaStr + " tem " + (contagemAtual + 1) + " novas mensagens.");
+
+        instancia.mensagensNaoLidas.putIfAbsent(chaveRecebida, new ArrayList<>());
+        String grupoAlvo = tipoConversa.equals(GRUPO) ? nomeConversaFinal : null;
+        instancia.mensagensNaoLidas.get(chaveRecebida).add(new String[] { idMensagem, grupoAlvo, nomeFinal });
+      } else {
+        String grupoAlvo = tipoConversa.equals(GRUPO) ? nomeConversaFinal : null;
+        cliente.enviarConfirmacao(idMensagem, 3, grupoAlvo, nomeFinal);
       } // fim do if
 
       conversa.adicionarMensagem(balaoDeDialogo);
 
-      if (conversaSelecionada != null && conversaSelecionada.equals(chaveRecebida)) {
+      if (instancia.conversaSelecionada != null && instancia.conversaSelecionada.equals(chaveRecebida)) {
         instancia.conversaVBox.getChildren().add(balaoDeDialogo);
       } // fim do if
     });
 
-    System.out.println("CLIENTE - exibindo mensagem \"" + msgFinal + "\" de " + nomeFinal + " na conversa " + chaveConversaStr + ".");
+    System.out.println(
+        "CLIENTE - exibindo mensagem \"" + msgFinal + "\" de " + nomeFinal + " na conversa " + chaveConversaStr + ".");
   } // fim do metodo receberMensagem
 
   /*
@@ -265,7 +284,8 @@ public static void receberMensagem(String mensagem, String nomeConversa, String 
    * enviadaPorMim = se foi mandada por ele mesmo
    * Retorno: void
    */
-  public static HBox criarBalaoDialogo(String mensagem, String nomeRemetente, boolean enviadaPorMim, boolean isVisuUnica, String idMensagem) {
+  public static HBox criarBalaoDialogo(String mensagem, String nomeRemetente, boolean enviadaPorMim,
+      boolean isVisuUnica, String idMensagem) {
 
     VBox balao = new VBox(5);
     balao.setMinWidth(200);
@@ -282,25 +302,27 @@ public static void receberMensagem(String mensagem, String nomeConversa, String 
 
     if (isVisuUnica) {
       Button btnVisu = new Button();
-      btnVisu.setStyle("-fx-background-color: transparent; -fx-font-weight: bold; -fx-cursor: hand; -fx-text-fill: #555555;");
-      
+      btnVisu.setStyle(
+          "-fx-background-color: transparent; -fx-font-weight: bold; -fx-cursor: hand; -fx-text-fill: #555555;");
+
       if (enviadaPorMim) {
         btnVisu.setText("Mensagem Unica Enviada");
         btnVisu.setDisable(true);
       } else {
         btnVisu.setText("Ver Mensagem Unica");
-        btnVisu.setStyle("-fx-background-color: #3b82f6; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;");
-        
+        btnVisu
+            .setStyle("-fx-background-color: #ff9b00; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;");
+
         btnVisu.setOnAction(e -> {
           btnVisu.setText("Mensagem Visualizada");
           btnVisu.setDisable(true);
           btnVisu.setStyle("-fx-background-color: transparent; -fx-text-fill: #999999; -fx-font-style: italic;");
-          
+
           abrirAlertaVisuUnica(nomeRemetente, mensagem);
         });
       } // fim do if
       balao.getChildren().add(btnVisu);
-      
+
     } else {
       Label textoMsg = new Label(mensagem);
       textoMsg.setFont(new Font("System", 14));
@@ -312,8 +334,10 @@ public static void receberMensagem(String mensagem, String nomeConversa, String 
     if (enviadaPorMim && idMensagem != null) {
       Label tickLabel = new Label(" ...");
       tickLabel.setStyle("-fx-text-fill: gray; -fx-font-weight: bold;");
-      
-      mapaTicks.put(idMensagem, tickLabel);
+
+      if (instancia != null) {
+        instancia.mapaTicks.put(idMensagem, tickLabel);
+      }
 
       HBox tickBox = new HBox(tickLabel);
       tickBox.setAlignment(Pos.BOTTOM_RIGHT);
@@ -350,9 +374,10 @@ public static void receberMensagem(String mensagem, String nomeConversa, String 
    * Retorno: void
    */
   public void entrarGrupo(String nomeGrupo) {
+    String nomeGrupoNormalizado = nomeGrupo != null ? nomeGrupo.trim() : "";
 
     // Alert para impedir do usuario criar grupo com nome vazio
-    if (nomeGrupo == null || nomeGrupo.trim().isEmpty()) {
+    if (nomeGrupoNormalizado.isEmpty()) {
       try {
         FXMLLoader loader = new FXMLLoader(getClass().getResource("/View/alert.fxml"));
         Parent root = loader.load();
@@ -375,7 +400,7 @@ public static void receberMensagem(String mensagem, String nomeConversa, String 
       return;
     } // fim do if
 
-    Pair<String, String> grupo = new Pair<>(nomeGrupo, GRUPO);
+    Pair<String, String> grupo = new Pair<>(nomeGrupoNormalizado, GRUPO);
 
     // Alert para impedir do usuario criar grupo com nome repetido
     if (listaConversas.containsKey(grupo)) {
@@ -402,12 +427,12 @@ public static void receberMensagem(String mensagem, String nomeConversa, String 
     } // fim do if
 
     try {
-      boolean sucesso = cliente.entrarGrupo(nomeGrupo);
+      boolean sucesso = cliente.entrarGrupo(nomeGrupoNormalizado);
 
       if (sucesso) {
         System.out.println("CLIENTE - Entrada no grupo confirmada pelo servidor!");
-        listaConversas.put(grupo, new Conversa(nomeGrupo, GRUPO));
-        adicionarConversaNaTela(nomeGrupo, GRUPO);
+        listaConversas.put(grupo, new Conversa(nomeGrupoNormalizado, GRUPO));
+        adicionarConversaNaTela(nomeGrupoNormalizado, GRUPO);
       } else {
         System.out.println("CLIENTE - O servidor negou ou falhou a entrada no grupo.");
       } // fim do if
@@ -658,6 +683,13 @@ public static void receberMensagem(String mensagem, String nomeConversa, String 
     listaConversas.get(conversaSelecionada).setNotificacoes(0);
     System.out.println("CLIENTE - Lidas as mensagens de: " + nomeConversa);
 
+    if (mensagensNaoLidas.containsKey(conversaSelecionada)) {
+      for (String[] dadosMsg : mensagensNaoLidas.get(conversaSelecionada)) {
+        cliente.enviarConfirmacao(dadosMsg[0], 3, dadosMsg[1], dadosMsg[2]);
+      } // fim do for
+      mensagensNaoLidas.get(conversaSelecionada).clear();
+    } // fim do if
+
     if (tipoConversa.equals(GRUPO)) {
       abrirListaMembrosButton.setDisable(false);
       opcoesConversaButton.setDisable(false);
@@ -785,7 +817,7 @@ public static void receberMensagem(String mensagem, String nomeConversa, String 
       cliente.fazerLogout();
       cliente.desligarCliente();
     } // fim do if
-    
+
     System.out.println("CLIENTE - Aplicacao encerrada com sucesso.");
     Platform.exit();
     System.exit(0);
@@ -811,15 +843,15 @@ public static void receberMensagem(String mensagem, String nomeConversa, String 
   @FXML
   public void abrirMenuOpcoesConversa(ActionEvent event) {
     ContextMenu menuDropdown = new ContextMenu();
-    
+
     MenuItem opcao1 = new MenuItem("Sair grupo");
-    
+
     opcao1.setOnAction(e -> {
       sairGrupo(conversaSelecionada.getKey());
     });
-    
+
     menuDropdown.getItems().add(opcao1);
-    
+
     menuDropdown.show(opcoesConversaButton, javafx.geometry.Side.BOTTOM, 0, 0);
   } // fim do metodo abrirMenuOpcoesConversa
 
@@ -832,25 +864,25 @@ public static void receberMensagem(String mensagem, String nomeConversa, String 
   @FXML
   public void abrirMenuOpcoes(ActionEvent event) {
     ContextMenu menuDropdown = new ContextMenu();
-    
+
     MenuItem opcao1 = new MenuItem("Listar Usuarios");
     MenuItem opcao2 = new MenuItem("Listar Grupos");
     MenuItem opcao3 = new MenuItem("Gerenciar Bloqueios");
-    
+
     opcao1.setOnAction(e -> {
       abrirListaUsuario();
     });
-    
+
     opcao2.setOnAction(e -> {
       abrirListaGrupos();
     });
-    
+
     opcao3.setOnAction(e -> {
       abrirTelaBloquearUsuario();
     });
-    
+
     menuDropdown.getItems().addAll(opcao1, opcao2, opcao3);
-    
+
     menuDropdown.show(buttonOpcoes, javafx.geometry.Side.BOTTOM, 0, 0);
   } // fim do metodo abrirMenuOpcoes
 
@@ -863,7 +895,7 @@ public static void receberMensagem(String mensagem, String nomeConversa, String 
   @FXML
   public void alternarVisuUnica(ActionEvent event) {
     isVisuUnica = !isVisuUnica; // Inverte o valor (se era false vira true, e vice-versa)
-    
+
     if (isVisuUnica) {
       // Remove o estilo normal e adiciona o estilo "Marcado" que vi nas suas imagens
       button1Visu.getStyleClass().remove("button1Visu");
@@ -879,50 +911,52 @@ public static void receberMensagem(String mensagem, String nomeConversa, String 
 
   /*
    * Metodo: abrirAlertaVisuUnica
-   * Funcao: Abre um popup utilizando a tela de alerta para exibir a mensagem de visualizacao unica
+   * Funcao: Abre um popup utilizando a tela de alerta para exibir a mensagem de
+   * visualizacao unica
    */
   public static void abrirAlertaVisuUnica(String remetente, String mensagemSecreta) {
     try {
       FXMLLoader loader = new FXMLLoader(instancia.getClass().getResource("/View/alert.fxml"));
       Parent root = loader.load();
-
       alertController controladorDoAlerta = loader.getController();
       controladorDoAlerta.setDetalhes("Visualizacao Unica de " + remetente, mensagemSecreta);
-
       Stage janelaAlerta = new Stage();
       janelaAlerta.setScene(new Scene(root));
       janelaAlerta.initStyle(StageStyle.UNDECORATED);
+
       janelaAlerta.initModality(Modality.APPLICATION_MODAL);
       janelaAlerta.show();
+
     } catch (IOException e) {
       System.out.println("CLIENTE - Erro ao abrir a mensagem de visualizacao unica.");
       e.printStackTrace();
-    } // fim do try-catch
+    } // fim do try-catch // fim do try-catch
   } // fim do metodo abrirAlertaVisuUnica
 
   /*
    * Metodo: processarBloqueioUsuario
-   * Funcao: Recebe o nome do popup e bloqueia ou desbloqueia o usuario dependendo da opcao escolhida
+   * Funcao: Recebe o nome do popup e bloqueia ou desbloqueia o usuario dependendo
+   * da opcao escolhida
    */
   public void processarBloqueioUsuario(String usuario, boolean isBloquear) {
     if (usuario == null || usuario.trim().isEmpty()) {
       System.out.println("CLIENTE - Nome invalido para a operacao.");
       return;
-    }
+    } // fim do if
 
     if (isBloquear) {
       if (cliente.bloquearUsuario(usuario)) {
-        System.out.println("CLIENTE - Usuario "+ usuario +" foi bloqueado!");
+        System.out.println("CLIENTE - Usuario " + usuario + " foi bloqueado!");
       } else {
-        System.out.println("CLIENTE - Falha ao bloquear o usuario "+ usuario +"!");
-      }
+        System.out.println("CLIENTE - Falha ao bloquear o usuario " + usuario + "!");
+      } // fim do if
     } else {
       if (cliente.desbloquearUsuario(usuario)) {
-        System.out.println("CLIENTE - Usuario "+ usuario +" foi desbloqueado!");
+        System.out.println("CLIENTE - Usuario " + usuario + " foi desbloqueado!");
       } else {
-        System.out.println("CLIENTE - Falha ao desbloquear o usuario "+ usuario +"!");
-      }
-    } 
+        System.out.println("CLIENTE - Falha ao desbloquear o usuario " + usuario + "!");
+      } // fim do if
+    } // fim do if
   } // fim do metodo processarBloqueioUsuario
 
   /*
@@ -951,33 +985,40 @@ public static void receberMensagem(String mensagem, String nomeConversa, String 
 
   /*
    * Metodo: atualizarStatusMensagem
-   * Funcao: Muda a imagem do tick (confirm) da mensagem de acordo com o status recebido
+   * Funcao: Muda a imagem do tick (confirm) da mensagem de acordo com o status
+   * recebido
    */
   /*
    * Metodo: atualizarStatusMensagem
    * Funcao: Altera o texto e a cor do tick baseado no status igual ao WhatsApp
    */
   public static void atualizarStatusMensagem(String idMensagem, int statusRecebido) {
+    if (instancia == null || idMensagem == null) {
+      return;
+    } // fim do if
+
     Platform.runLater(() -> {
-      if (idMensagem != null && mapaTicks.containsKey(idMensagem)) {
-        Label tickLabel = mapaTicks.get(idMensagem);
-        
-        if (statusRecebido == -1) {
-            tickLabel.setText(" [X]");
-            tickLabel.setStyle("-fx-text-fill: red; -fx-font-weight: bold;");
-        } else if (statusRecebido == 0) {
-            tickLabel.setText(" ...");
-            tickLabel.setStyle("-fx-text-fill: gray;");
-        } else if (statusRecebido == 1) {
-            tickLabel.setText(" \u2713"); // Um tick cinza
-            tickLabel.setStyle("-fx-text-fill: gray; -fx-font-weight: bold;");
-        } else if (statusRecebido == 2) {
-            tickLabel.setText(" \u2713\u2713"); // Dois ticks cinzas
-            tickLabel.setStyle("-fx-text-fill: gray; -fx-font-weight: bold;");
-        } else if (statusRecebido >= 3) {
-            tickLabel.setText(" \u2713\u2713"); // Dois ticks AZUIS (Lido!)
-            tickLabel.setStyle("-fx-text-fill: #34B7F1; -fx-font-weight: bold;");
-        } // fim do if
+      if (instancia == null || !instancia.mapaTicks.containsKey(idMensagem)) {
+        return;
+      } // fim do if
+
+      Label tickLabel = instancia.mapaTicks.get(idMensagem);
+
+      if (statusRecebido == -1) {
+        tickLabel.setText(" [X]");
+        tickLabel.setStyle("-fx-text-fill: red; -fx-font-weight: bold;");
+      } else if (statusRecebido == 0) {
+        tickLabel.setText(" ...");
+        tickLabel.setStyle("-fx-text-fill: gray;");
+      } else if (statusRecebido == 1) {
+        tickLabel.setText(" \u2713"); // Um tick cinza
+        tickLabel.setStyle("-fx-text-fill: gray; -fx-font-weight: bold;");
+      } else if (statusRecebido == 2) {
+        tickLabel.setText(" \u2713\u2713"); // Dois ticks cinzas
+        tickLabel.setStyle("-fx-text-fill: gray; -fx-font-weight: bold;");
+      } else if (statusRecebido >= 3) {
+        tickLabel.setText(" \u2713\u2713"); // Dois ticks AZUIS (Lido!)
+        tickLabel.setStyle("-fx-text-fill: #34B7F1; -fx-font-weight: bold;");
       } // fim do if
     });
   } // fim do metodo atualizarStatusMensagem
