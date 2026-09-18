@@ -2,7 +2,7 @@
 * Autor............: Luan Alves Lelis Costa
 * Matricula........: 202310352
 * Inicio...........: 12/06/2026
-* Ultima alteracao.: 17/09/2026
+* Ultima alteracao.: 18/09/2026
 * Nome.............: clienteController.java
 * Funcao...........: Faz a ponte de comunicacao entre a interface e a classe cliente
 *******************************************************************/
@@ -78,6 +78,8 @@ public class clienteController implements Initializable {
   private Button button1Visu;
   @FXML
   private Button buttonOpcoes;
+  @FXML
+  private Label clienteLabel;
 
   private double xOffset = 0;
   private double yOffset = 0;
@@ -98,6 +100,8 @@ public class clienteController implements Initializable {
   public void initialize(URL location, ResourceBundle resources) {
     instancia = this;
     System.out.println("O Controller foi carregado corretamente!");
+
+    clienteLabel.setText(cliente.getNomeCliente());
 
     mensagemField.setOnKeyPressed((KeyEvent event) -> {
       // Verifica se a tecla apertada foi o ENTER
@@ -200,7 +204,7 @@ public class clienteController implements Initializable {
     } // fim do if
 
     if (msgId != null) {
-      HBox balaoDeDialogo = criarBalaoDialogo(mensagem, "Voce", true, isVisuUnica, msgId);
+      HBox balaoDeDialogo = criarBalaoDialogo(mensagem, "Voce", true, isVisuUnica, msgId, null, null);
       listaConversas.get(conversaSelecionada).adicionarMensagem(balaoDeDialogo);
       conversaVBox.getChildren().add(balaoDeDialogo);
     } // fim do if
@@ -241,7 +245,8 @@ public class clienteController implements Initializable {
       if (nomeFinal.equals("SERVIDOR")) {
         balaoDeDialogo = criarAvisoSistema(msgFinal);
       } else {
-        balaoDeDialogo = criarBalaoDialogo(msgFinal, nomeFinal, false, isVisuUnica, null);
+        String grupoAlvo = tipoConversa.equals(GRUPO) ? nomeConversaFinal : null;
+        balaoDeDialogo = criarBalaoDialogo(msgFinal, nomeFinal, false, isVisuUnica, idMensagem, grupoAlvo, nomeFinal);
       } // fim do if
 
       Pair<String, String> chaveRecebida = new Pair<>(chaveConversaStr, tipoConversa);
@@ -259,10 +264,11 @@ public class clienteController implements Initializable {
 
         instancia.mensagensNaoLidas.putIfAbsent(chaveRecebida, new ArrayList<>());
         String grupoAlvo = tipoConversa.equals(GRUPO) ? nomeConversaFinal : null;
-        instancia.mensagensNaoLidas.get(chaveRecebida).add(new String[] { idMensagem, grupoAlvo, nomeFinal });
-      } else {
-        String grupoAlvo = tipoConversa.equals(GRUPO) ? nomeConversaFinal : null;
-        cliente.enviarConfirmacao(idMensagem, 3, grupoAlvo, nomeFinal);
+        instancia.mensagensNaoLidas.get(chaveRecebida).add(new String[] { idMensagem, grupoAlvo, nomeFinal,
+            Boolean.toString(isVisuUnica) });
+        } else if (!isVisuUnica) {
+          String grupoAlvo = tipoConversa.equals(GRUPO) ? nomeConversaFinal : null;
+          cliente.enviarConfirmacao(idMensagem, 3, grupoAlvo, nomeFinal);
       } // fim do if
 
       conversa.adicionarMensagem(balaoDeDialogo);
@@ -284,8 +290,8 @@ public class clienteController implements Initializable {
    * enviadaPorMim = se foi mandada por ele mesmo
    * Retorno: void
    */
-  public static HBox criarBalaoDialogo(String mensagem, String nomeRemetente, boolean enviadaPorMim,
-      boolean isVisuUnica, String idMensagem) {
+    public static HBox criarBalaoDialogo(String mensagem, String nomeRemetente, boolean enviadaPorMim,
+      boolean isVisuUnica, String idMensagem, String nomeGrupoConfirmacao, String donoDaMensagem) {
 
     VBox balao = new VBox(5);
     balao.setMinWidth(200);
@@ -318,6 +324,9 @@ public class clienteController implements Initializable {
           btnVisu.setDisable(true);
           btnVisu.setStyle("-fx-background-color: transparent; -fx-text-fill: #999999; -fx-font-style: italic;");
 
+          if (cliente != null && idMensagem != null) {
+            cliente.enviarConfirmacao(idMensagem, 3, nomeGrupoConfirmacao, donoDaMensagem);
+          }
           abrirAlertaVisuUnica(nomeRemetente, mensagem);
         });
       } // fim do if
@@ -685,7 +694,9 @@ public class clienteController implements Initializable {
 
     if (mensagensNaoLidas.containsKey(conversaSelecionada)) {
       for (String[] dadosMsg : mensagensNaoLidas.get(conversaSelecionada)) {
-        cliente.enviarConfirmacao(dadosMsg[0], 3, dadosMsg[1], dadosMsg[2]);
+        if (!Boolean.parseBoolean(dadosMsg[3])) {
+          cliente.enviarConfirmacao(dadosMsg[0], 3, dadosMsg[1], dadosMsg[2]);
+        }
       } // fim do for
       mensagensNaoLidas.get(conversaSelecionada).clear();
     } // fim do if
@@ -920,6 +931,7 @@ public class clienteController implements Initializable {
       Parent root = loader.load();
       alertController controladorDoAlerta = loader.getController();
       controladorDoAlerta.setDetalhes("Visualizacao Unica de " + remetente, mensagemSecreta);
+      controladorDoAlerta.setDisableImage();
       Stage janelaAlerta = new Stage();
       janelaAlerta.setScene(new Scene(root));
       janelaAlerta.initStyle(StageStyle.UNDECORATED);
@@ -988,10 +1000,6 @@ public class clienteController implements Initializable {
    * Funcao: Muda a imagem do tick (confirm) da mensagem de acordo com o status
    * recebido
    */
-  /*
-   * Metodo: atualizarStatusMensagem
-   * Funcao: Altera o texto e a cor do tick baseado no status igual ao WhatsApp
-   */
   public static void atualizarStatusMensagem(String idMensagem, int statusRecebido) {
     if (instancia == null || idMensagem == null) {
       return;
@@ -1022,4 +1030,13 @@ public class clienteController implements Initializable {
       } // fim do if
     });
   } // fim do metodo atualizarStatusMensagem
+
+
+  /*
+   * Metodo: getCliente
+   * Funcao: Retorna o objeto cliente
+   */
+  public Cliente getCliente() {
+    return cliente;
+  } // fim do metodo getCliente
 }

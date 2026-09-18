@@ -1,5 +1,5 @@
 /*****************************************************************
-* Autor..............: Lucas de Menezes Chaves
+* Autor..............: Luan Alves Lelis Costa
 * Matricula........: 202310352
 * Inicio...........: 14/09/2026
 * Ultima alteracao.: 14/09/2026

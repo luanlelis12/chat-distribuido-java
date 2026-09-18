@@ -1,3 +1,11 @@
+/* ***************************************************************
+* Autor............: Luan Alves Lelis Costa
+* Matricula........: 202310352
+* Inicio...........: 12/06/2026
+* Ultima alteracao.: 18/09/2026
+* Nome.............: Descobridor.java
+* Funcao...........: Varrer todas as interfaces de rede do computador para descobrir o IP do servidor
+*******************************************************************/
 package Network;
 
 import java.net.DatagramPacket;

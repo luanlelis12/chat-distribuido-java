@@ -2,7 +2,7 @@
 * Autor............: Luan Alves Lelis Costa
 * Matricula........: 202310352
 * Inicio...........: 12/06/2026
-* Ultima alteracao.: 17/09/2026
+* Ultima alteracao.: 18/09/2026
 * Nome.............: Cliente.java
 * Funcao...........: Gerencia as apdus e a comunicacao com o servidor
 *******************************************************************/
@@ -159,7 +159,8 @@ public class Cliente extends Thread {
 
       case "SENDPVT":
         enviarConfirmacao(apdu.getIdMensagem(), 2, null, apdu.getNomeUsuario());
-        Controller.clienteController.receberMensagem(apdu.getTextoMensagem(), apdu.getNomeUsuario(), apdu.getNomeUsuario(), PRIVADO, false, apdu.getIdMensagem());
+        Controller.clienteController.receberMensagem(apdu.getTextoMensagem(), apdu.getNomeUsuario(), apdu.getNomeUsuario(), PRIVADO,
+            apdu.isVisualizacaoUnica(), apdu.getIdMensagem());
         break;
 
       case "SENDVU":
@@ -314,10 +315,10 @@ public class Cliente extends Thread {
    */
   public String enviarMensagemPrivado(String usuarioDestino, String mensagem, boolean isVisuUnica) {
     try {
-      String operacao = isVisuUnica ? "SENDVU" : "SENDPVT"; 
-      APDU apdu = new APDU(operacao, null, this.nomeCliente, mensagem, this.portaClienteUDP, usuarioDestino);
+      APDU apdu = new APDU("SENDPVT", null, this.nomeCliente, mensagem, this.portaClienteUDP, usuarioDestino);
+      apdu.setVisualizacaoUnica(isVisuUnica);
       enviarObjetoUDP(apdu);
-      System.out.println("CLIENTE - Enviando APDU " + operacao + " para o servidor");
+      System.out.println("CLIENTE - Enviando APDU SENDPVT para o servidor");
       return apdu.getIdMensagem();
     } catch (Exception e) {
       System.out.println("CLIENTE - ERRO: Nao foi possivel enviar a mensagem privada!");

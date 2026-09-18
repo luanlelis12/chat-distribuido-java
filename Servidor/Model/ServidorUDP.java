@@ -2,7 +2,7 @@
 * Autor............: Luan Alves Lelis Costa
 * Matricula........: 202310352
 * Inicio...........: 17/06/2026
-* Ultima alteracao.: 17/09/2026
+* Ultima alteracao.: 19/09/2026
 * Nome.............: ServidorUDP.java
 * Funcao...........: Lidar com pacotes rapidos (mensagens, ticks e visualizacao unica) sem garantir conexao
 *******************************************************************/
@@ -191,10 +191,8 @@ public class ServidorUDP extends Thread {
 
     for (Usuario usuario : listaDeUsuarios) {
       if (!usuario.getNome().equals(nomeUsuarioRemetente) &&
-          usuarioRemetente != null && !usuarioRemetente.getBloqueados().contains(usuario.getNome()) &&
+          !usuarioRemetente.getBloqueados().contains(usuario.getNome()) &&
           !usuario.getBloqueados().contains(nomeUsuarioRemetente)) {
-
-        enviarObjetoUDP(apdu, usuario.getIp(), usuario.getPorta());
         membrosEsperados.add(usuario.getNome());
       } // fim do if
     } // fim do for
@@ -207,6 +205,12 @@ public class ServidorUDP extends Thread {
         servidor.esperadosGrupo.put(apdu.getIdMensagem(), membrosEsperados);
         servidor.recebidosGrupo.put(apdu.getIdMensagem(), new HashSet<>());
         servidor.lidosGrupo.put(apdu.getIdMensagem(), new HashSet<>());
+
+        for (Usuario usuario : listaDeUsuarios) {
+          if (membrosEsperados.contains(usuario.getNome())) {
+            enviarObjetoUDP(apdu, usuario.getIp(), usuario.getPorta());
+          } // fim do if
+        } // fim do for
       } else {
         System.out.println(
             "      -> AVISO: Todos no grupo bloquearam o envio. Gerando ticks finalizados para destravar a tela do cliente.");

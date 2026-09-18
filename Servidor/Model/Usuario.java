@@ -4,7 +4,7 @@
 * Inicio...........: 12/06/2026
 * Ultima alteracao.: 15/09/2026
 * Nome.............: Usuario.java
-* Funcao...........: 
+* Funcao...........: Representa um usuario conectado ao servidor, com seu IP, porta e nome
 *******************************************************************/
 
 package Model;

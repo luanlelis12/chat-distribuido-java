@@ -2,7 +2,7 @@
 * Autor............: Luan Alves Lelis Costa
 * Matricula........: 202310352
 * Inicio...........: 12/06/2026
-* Ultima alteracao.: 17/09/2026
+* Ultima alteracao.: 18/09/2026
 * Nome.............: Servidor.java
 * Funcao...........: Gerenciar a memoria central compartilhada e inicializar as threads UDP e TCP
 *******************************************************************/

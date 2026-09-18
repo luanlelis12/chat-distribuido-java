@@ -4,10 +4,11 @@
 * Inicio...........: 12/06/2026
 * Ultima alteracao.: 14/09/2026
 * Nome.............: Principal.java
-* Funcao...........: 
+* Funcao...........: Classe principal do cliente, inicia a interface grafica
 *******************************************************************/
 
 import Controller.alertController;
+import Controller.bloquearUsuarioController;
 import Controller.clienteController;
 import Controller.entrarConversaController;
 import Controller.listarConversasController;

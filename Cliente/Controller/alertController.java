@@ -2,7 +2,7 @@
 * Autor............: Luan Alves Lelis Costa
 * Matricula........: 202310352
 * Inicio...........: 27/06/2026
-* Ultima alteracao.: 30/06/2026
+* Ultima alteracao.: 18/09/2026
 * Nome.............: alertController.java
 * Funcao...........: Gerencia a interface dos alerts
 *******************************************************************/
@@ -16,6 +16,7 @@ import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.Node;
 import javafx.scene.control.Label;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.Pane;
 import javafx.stage.Stage;
 
@@ -27,6 +28,8 @@ public class alertController implements Initializable {
   private Label tituloLabel;
   @FXML
   private Label mensagemLabel;
+  @FXML 
+  private ImageView imagem;
 
   private double xOffset = 0;
   private double yOffset = 0;
@@ -76,4 +79,13 @@ public class alertController implements Initializable {
     janelaAlerta.close();
   } // fim do metodo fecharAlerta
 
+  /*
+   * Metodo: setDisableImage
+   * Funcao: Desabilita a imagem do alert
+   * Parametros: nenhum
+   * Retorno: void
+   */
+  public void setDisableImage() {
+    imagem.setVisible(false);
+  } // fim do metodo disableImage
 }

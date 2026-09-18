@@ -2,7 +2,7 @@
 * Autor............: Luan Alves Lelis Costa
 * Matricula........: 202310352
 * Inicio...........: 17/06/2026
-* Ultima alteracao.: 17/09/2026
+* Ultima alteracao.: 19/09/2026
 * Nome.............: ServidorTCP.java
 * Funcao...........: Lidar com conexoes confiaveis de longa duracao e gerenciar grupos e usuarios
 *******************************************************************/
