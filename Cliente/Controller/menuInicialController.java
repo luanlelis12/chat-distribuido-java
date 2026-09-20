@@ -163,7 +163,7 @@ public class menuInicialController implements Initializable {
    * Retorno: void
    */
   public void fecharAplicacao() {
-    clienteController.fecharAplicacao();
+    clienteController.encerrarAplicacao();
   } // fim do metodo fecharAplicacao
 
   /*

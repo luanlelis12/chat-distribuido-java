@@ -36,6 +36,7 @@ public class Principal extends Application {
     // Carrega o arquivo FXML da tela principal
     FXMLLoader loader = new FXMLLoader(getClass().getResource("View/menuInicial.fxml"));
     Parent root = loader.load();
+    menuInicialController controladorInicial = loader.getController();
 
     // Configura a cena
     primaryStage.initStyle(StageStyle.UNDECORATED);
@@ -43,7 +44,7 @@ public class Principal extends Application {
     primaryStage.setScene(new Scene(root));
 
     primaryStage.setOnCloseRequest(evento -> {
-      clienteController.fecharAplicacao();
+      controladorInicial.fecharAplicacao();
     });
 
     primaryStage.show();

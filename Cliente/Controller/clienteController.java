@@ -834,7 +834,17 @@ public class clienteController implements Initializable {
    * Parametros: nenhum
    * Retorno: void
    */
-  public static void fecharAplicacao() {
+  public void fecharAplicacao() {
+    encerrarAplicacao();
+  } // fim do metodo fecharAplicacao
+
+  /*
+   * Metodo: encerrarAplicacao
+   * Funcao: Executa o logout e encerra a aplicacao
+   * Parametros: nenhum
+   * Retorno: void
+   */
+  public static void encerrarAplicacao() {
     System.out.println("CLIENTE - Iniciando encerramento da aplicacao...");
     if (cliente != null) {
       cliente.fazerLogout();
@@ -844,7 +854,7 @@ public class clienteController implements Initializable {
     System.out.println("CLIENTE - Aplicacao encerrada com sucesso.");
     Platform.exit();
     System.exit(0);
-  } // fim do metodo fecharAplicacao
+  } // fim do metodo encerrarAplicacao
 
   /*
    * Metodo: minimizarTela
