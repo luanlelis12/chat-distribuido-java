@@ -24,6 +24,12 @@ import javafx.scene.Scene;
 
 public class Principal extends Application {
 
+  /*
+   * Metodo: start
+   * Funcao: Carrega e exibe a tela inicial do cliente
+   * Parametros: primaryStage = janela principal da aplicacao
+   * Retorno: void
+   */
   @Override
   public void start(Stage primaryStage) throws Exception {
 
@@ -41,7 +47,7 @@ public class Principal extends Application {
     });
 
     primaryStage.show();
-  }
+  } // fim do metodo start
 
   public static void main(String[] args) {
     launch(args);

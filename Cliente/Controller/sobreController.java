@@ -26,6 +26,12 @@ public class sobreController implements Initializable {
   private double xOffset = 0;
   private double yOffset = 0;
 
+  /*
+   * Metodo: initialize
+   * Funcao: Configura o arraste da janela pela barra superior
+   * Parametros: location = localizacao do FXML, resources = recursos do FXML
+   * Retorno: void
+   */
   @Override
   public void initialize(URL location, ResourceBundle resources) {
     System.out.println("O Controller foi carregado corretamente!");
@@ -49,6 +55,8 @@ public class sobreController implements Initializable {
   /*
    * Metodo: fecharSobre
    * Funcao: Fecha a janela de informacoes do trabalho
+    * Parametros: event = evento que acionou o fechamento
+    * Retorno: void
    */
   @FXML
   public void fecharSobre(ActionEvent event) {

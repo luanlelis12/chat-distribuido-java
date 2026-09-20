@@ -17,6 +17,7 @@ import java.net.Socket;
 import java.util.ArrayList;
 
 public class ServidorTCP extends Thread {
+  private static final int TIMEOUT_TCP = 5000;
   private int porta;
   private Servidor servidor;
 
@@ -25,6 +26,7 @@ public class ServidorTCP extends Thread {
    * Funcao: Inicializar os atributos da thread tcp
    * Parametros: porta = porta de escuta, servidor = instancia principal da
    * memoria central
+  * Retorno: void
    */
   public ServidorTCP(int porta, Servidor servidor) {
     this.porta = porta;
@@ -43,6 +45,7 @@ public class ServidorTCP extends Thread {
       System.out.println("[TCP] Escutando na porta " + porta);
       while (true) {
         Socket clientSocket = serverSocket.accept();
+        clientSocket.setSoTimeout(TIMEOUT_TCP);
         new Thread(() -> processarConexao(clientSocket)).start();
       } // fim do while
     } catch (Exception e) {

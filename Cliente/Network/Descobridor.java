@@ -41,7 +41,7 @@ public class Descobridor {
       byte[] pedido = "SERVIDOR_IP".getBytes();
       byte[] buffer = new byte[256];
 
-      // Dispara o grito para todos os endereços de broadcast encontrados
+      // Envia o pedido para todos os enderecos de broadcast encontrados
       for (InetAddress broadcastAddr : broadcasts) {
         try {
           System.out.println("CLIENTE - Tentando broadcast em: " + broadcastAddr.getHostAddress());

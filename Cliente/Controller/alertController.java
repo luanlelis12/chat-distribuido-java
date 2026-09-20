@@ -34,6 +34,12 @@ public class alertController implements Initializable {
   private double xOffset = 0;
   private double yOffset = 0;
 
+  /*
+   * Metodo: initialize
+   * Funcao: Configura o arraste da janela pela barra superior
+   * Parametros: location = localizacao do FXML, resources = recursos do FXML
+   * Retorno: void
+   */
   @Override
   public void initialize(URL location, ResourceBundle resources) {
     System.out.println("O Controller foi carregado corretamente!");

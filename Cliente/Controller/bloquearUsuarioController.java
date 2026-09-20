@@ -28,6 +28,12 @@ public class bloquearUsuarioController {
   private double xOffset = 0;
   private double yOffset = 0;
 
+  /*
+   * Metodo: initialize
+   * Funcao: Configura o arraste da janela pela barra superior
+   * Parametros: nenhum
+   * Retorno: void
+   */
   @FXML
   public void initialize() {
     if (barraSuperior != null) {
@@ -41,14 +47,20 @@ public class bloquearUsuarioController {
         janela.setX(event.getScreenX() - xOffset);
         janela.setY(event.getScreenY() - yOffset);
       });
-    }
-  }
+    } // fim do if
+  } //fim do metodo initialize
   
   @FXML
   private ToggleGroup tipoDeAcao; // Grupo dos botoes Bloquear/Desbloquear
 
   private clienteController controladorPai;
 
+  /*
+   * Metodo: confirmarAcao
+   * Funcao: Bloqueia ou desbloqueia o usuario selecionado
+   * Parametros: event = evento que confirmou a acao
+   * Retorno: void
+   */
   @FXML
   public void confirmarAcao(ActionEvent event) {
     String nomeDigitado = nomeUsuarioField.getText();
@@ -61,6 +73,12 @@ public class bloquearUsuarioController {
     fecharTela(event);
   } // fim do metodo confirmarAcao
 
+  /*
+   * Metodo: fecharTela
+   * Funcao: Fecha a janela de bloqueio
+   * Parametros: event = evento que acionou o fechamento
+   * Retorno: void
+   */
   public void fecharTela(ActionEvent event) {
     Stage janela = (Stage) ((Node) event.getSource()).getScene().getWindow();
     janela.close();

@@ -31,6 +31,12 @@ public class entrarConversaController {
   private double xOffset = 0;
   private double yOffset = 0;
 
+  /*
+   * Metodo: initialize
+   * Funcao: Configura o arraste da janela pela barra superior
+   * Parametros: nenhum
+   * Retorno: void
+   */
   @FXML
   public void initialize() {
     if (barraSuperior != null) {
@@ -44,8 +50,8 @@ public class entrarConversaController {
         janela.setX(event.getScreenX() - xOffset);
         janela.setY(event.getScreenY() - yOffset);
       });
-    }
-  }
+    } // fim do if
+  } // fim do metodo initialize
 
   /*
    * Metodo: confirmarEntrada

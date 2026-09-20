@@ -37,6 +37,12 @@ public class menuInicialController implements Initializable {
   private double xOffset = 0;
   private double yOffset = 0;
 
+  /*
+   * Metodo: initialize
+   * Funcao: Configura o arraste da janela pela barra superior
+   * Parametros: location = localizacao do FXML, resources = recursos do FXML
+   * Retorno: void
+   */
   @Override
   public void initialize(URL location, ResourceBundle resources) {
     System.out.println("O Controller foi carregado corretamente!");
@@ -55,7 +61,7 @@ public class menuInicialController implements Initializable {
         janela.setY(event.getScreenY() - yOffset);
       });
     } // fim do if
-  }
+  } // fim do metodo initialize
 
   /*
    * Metodo: criarCliente
@@ -151,9 +157,9 @@ public class menuInicialController implements Initializable {
   } // fim do metodo criarCliente
 
   /*
-   * Metodo: fecharTela
-   * Funcao: Fecha a tela
-   * Parametros: 
+   * Metodo: fecharAplicacao
+   * Funcao: Faz logout e encerra a aplicacao
+   * Parametros: nenhum
    * Retorno: void
    */
   public void fecharAplicacao() {

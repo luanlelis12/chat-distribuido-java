@@ -28,17 +28,35 @@ public class Conversa {
     this.notificacoes = 0;
   }
 
+  /*
+   * Metodo: adicionarMensagem
+   * Funcao: Adiciona uma nova mensagem ao historico da conversa
+  * Parametros: balao = balao de mensagem a ser adicionado
+   * Retorno: void
+   */
   public void adicionarMensagem(HBox balao) {
     this.historico.add(balao);
-  }
+  } // fim do metodo adicionarMensagem
 
+  /*
+   * Metodo: novaNotificacao
+   * Funcao: Incrementa o contador de notificacoes
+   * Parametros: nenhum
+   * Retorno: void
+   */
   public void novaNotificacao() {
     this.notificacoes++;
-  }
+  } // fim do metodo novaNotificacao
 
+  /*
+   * Metodo: lerNotificacoes
+   * Funcao: Zera o contador de notificacoes
+   * Parametros: nenhum
+   * Retorno: void
+   */
   public void lerNotificacoes() {
     this.notificacoes = 0;
-  }
+  } // fim do metodo lerNotificacoes
 
   public ArrayList<HBox> getHistorico() {
     return historico;
@@ -68,20 +86,38 @@ public class Conversa {
     this.historico = historico;
   }
 
+  /*
+   * Metodo: setNotificacaoLabel
+   * Funcao: Define o label usado para exibir notificacoes
+   * Parametros: notificacaoLabel = label de notificacoes
+   * Retorno: void
+   */
   public void setNotificacaoLabel(Label notificacaoLabel) {
     this.notificacaoLabel = notificacaoLabel;
     atualizarTela();
-  }
+  } // fim do metodo setNotificacaoLabel
 
   public void setNotificacaoImage(ImageView notificacaoImage) {
     this.notificacaoImage = notificacaoImage;
   }
 
+  /*
+   * Metodo: setNotificacoes
+   * Funcao: Atualiza a quantidade de notificacoes e a tela
+   * Parametros: notificacoes = nova quantidade de notificacoes
+   * Retorno: void
+   */
   public void setNotificacoes(int notificacoes) {
     this.notificacoes = notificacoes;
     atualizarTela();
-  }
+  } // fim do metodo setNotificacoes
 
+  /*
+   * Metodo: atualizarTela
+   * Funcao: Atualiza a exibicao das notificacoes da conversa
+   * Parametros: nenhum
+   * Retorno: void
+   */
   private void atualizarTela() {
     if (this.notificacaoLabel != null) {
       if (this.notificacoes > 0) {
@@ -92,8 +128,8 @@ public class Conversa {
         this.notificacaoLabel.setVisible(false);
         this.notificacaoLabel.setText("");
         this.notificacaoImage.setVisible(false);
-      }
-    }
-  }
+      } // fim do if
+    } // fim do if
+  } // fim do metodo atualizarTela
 
 }

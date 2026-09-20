@@ -15,6 +15,7 @@ import java.io.ObjectOutputStream;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.NetworkInterface;
 import java.net.Socket;
 import java.util.ArrayList;
@@ -30,6 +31,8 @@ public class Cliente extends Thread {
 
   private final int PORTA_SERVIDOR_UDP = 7777;
   private final int PORTA_SERVIDOR_TCP = 6789;
+  private final int TIMEOUT_TCP = 5000;
+  private final int TIMEOUT_LOGOUT = 1000;
 
   private int portaClienteUDP;
 
@@ -42,6 +45,12 @@ public class Cliente extends Thread {
   private DatagramSocket endpointCliente;
   private volatile boolean escutaUDPAtiva = false;
 
+  /*
+   * Metodo: Cliente
+   * Funcao: Inicializa o cliente e abre a porta UDP local
+   * Parametros: nomeCliente = nome do usuario, ipServidor = IP do servidor
+   * Retorno: void
+   */
   public Cliente(String nomeCliente, String ipServidor) {
     try {
       this.nomeCliente = nomeCliente;
@@ -62,7 +71,7 @@ public class Cliente extends Thread {
    * Metodo: descobrirIpLocal
    * Funcao: Detecta o IP local do cliente para enviar ao servidor
    * Parametros: nenhum
-   * Retorno: void
+  * Retorno: endereco IP local ou um endereco de fallback
    */
   private InetAddress descobrirIpLocal() {
     try {
@@ -97,11 +106,11 @@ public class Cliente extends Thread {
   }
 
   /*
-   * Metodo: start
+  * Metodo: iniciarEscutaUDP
    * Funcao: Inicia a Thread que escuta mensagens UDP (objetos APDU) recebidas do
    * servidor
    * Parametros: nenhum
-   * Retorno: void
+  * Retorno: void
    */
   public synchronized void iniciarEscutaUDP() {
     if (escutaUDPAtiva || endpointCliente == null || endpointCliente.isClosed()) {
@@ -200,8 +209,7 @@ public class Cliente extends Thread {
     } // fim do if
 
     try {
-      try (Socket socketCliente = new Socket(ipServidor, PORTA_SERVIDOR_TCP)) {
-      socketCliente.setSoTimeout(5000);
+      try (Socket socketCliente = abrirSocketTCP(TIMEOUT_TCP)) {
 
       ObjectOutputStream saida = new ObjectOutputStream(socketCliente.getOutputStream());
       saida.flush();
@@ -242,8 +250,7 @@ public class Cliente extends Thread {
    */
   public boolean sairGrupo(String grupo) {
     try {
-      try (Socket socketCliente = new Socket(ipServidor, PORTA_SERVIDOR_TCP)) {
-      socketCliente.setSoTimeout(5000);
+      try (Socket socketCliente = abrirSocketTCP(TIMEOUT_TCP)) {
 
       ObjectOutputStream saida = new ObjectOutputStream(socketCliente.getOutputStream());
       saida.flush();
@@ -271,6 +278,19 @@ public class Cliente extends Thread {
       return false;
     } // fim do try-catch
   } // fim do metodo sairGrupo
+
+    /*
+     * Metodo: abrirSocketTCP
+     * Funcao: Abre uma conexao TCP com timeout de conexao e leitura
+     * Parametros: timeout = limite em milissegundos
+     * Retorno: socket TCP conectado
+     */
+    private Socket abrirSocketTCP(int timeout) throws java.io.IOException {
+      Socket socket = new Socket();
+      socket.connect(new InetSocketAddress(ipServidor, PORTA_SERVIDOR_TCP), timeout);
+      socket.setSoTimeout(timeout);
+      return socket;
+    }
 
   /*
    * Metodo: enviarObjetoUDP
@@ -316,7 +336,7 @@ public class Cliente extends Thread {
    * Metodo: enviarMensagemPrivado
    * Funcao: Envia uma mensagem privada utilizando o objeto APDU
    * Parametros: usuarioDestino = usuario que vai receber, mensagem = texto
-   * Retorno: void
+    * Retorno: String com o ID da mensagem ou null em caso de erro
    */
   public String enviarMensagemPrivado(String usuarioDestino, String mensagem, boolean isVisuUnica) {
     try {
@@ -339,7 +359,7 @@ public class Cliente extends Thread {
    */
   public boolean fazerLogin() {
     try {
-      try (Socket socketCliente = new Socket(ipServidor, PORTA_SERVIDOR_TCP)) {
+      try (Socket socketCliente = abrirSocketTCP(TIMEOUT_TCP)) {
       ObjectOutputStream saida = new ObjectOutputStream(socketCliente.getOutputStream());
       saida.flush();
       ObjectInputStream entrada = new ObjectInputStream(socketCliente.getInputStream());
@@ -369,8 +389,8 @@ public class Cliente extends Thread {
    */
   public void fazerLogout() {
     try {
-      try (Socket socketCliente = new Socket(ipServidor, PORTA_SERVIDOR_TCP)) {
-      socketCliente.setSoTimeout(1000);
+      try (Socket socketCliente = abrirSocketTCP(TIMEOUT_LOGOUT)) {
+      socketCliente.setSoTimeout(TIMEOUT_LOGOUT);
       ObjectOutputStream saida = new ObjectOutputStream(socketCliente.getOutputStream());
       saida.flush();
       ObjectInputStream entrada = new ObjectInputStream(socketCliente.getInputStream());
@@ -395,7 +415,7 @@ public class Cliente extends Thread {
    */
   public void solicitarListaGrupos() {
     try {
-      Socket socketCliente = new Socket(ipServidor, PORTA_SERVIDOR_TCP);
+      Socket socketCliente = abrirSocketTCP(TIMEOUT_TCP);
       ObjectOutputStream saida = new ObjectOutputStream(socketCliente.getOutputStream());
       saida.flush();
       ObjectInputStream entrada = new ObjectInputStream(socketCliente.getInputStream());
@@ -425,7 +445,7 @@ public class Cliente extends Thread {
    */
   public void solicitarListaMembros(String grupo) {
     try {
-      Socket socketCliente = new Socket(ipServidor, PORTA_SERVIDOR_TCP);
+      Socket socketCliente = abrirSocketTCP(TIMEOUT_TCP);
       ObjectOutputStream saida = new ObjectOutputStream(socketCliente.getOutputStream());
       saida.flush();
       ObjectInputStream entrada = new ObjectInputStream(socketCliente.getInputStream());
@@ -455,7 +475,7 @@ public class Cliente extends Thread {
    */
   public void solicitarListaUsuarios() {
     try {
-      Socket socketCliente = new Socket(ipServidor, PORTA_SERVIDOR_TCP);
+      Socket socketCliente = abrirSocketTCP(TIMEOUT_TCP);
       ObjectOutputStream saida = new ObjectOutputStream(socketCliente.getOutputStream());
       saida.flush();
       ObjectInputStream entrada = new ObjectInputStream(socketCliente.getInputStream());
@@ -508,8 +528,7 @@ public class Cliente extends Thread {
    */
   public boolean verificarUsuario(String nomeUsuarioDestino) {
     try {
-      Socket socketCliente = new Socket(ipServidor, PORTA_SERVIDOR_TCP);
-      socketCliente.setSoTimeout(5000);
+      Socket socketCliente = abrirSocketTCP(TIMEOUT_TCP);
 
       ObjectOutputStream saida = new ObjectOutputStream(socketCliente.getOutputStream());
       saida.flush();
@@ -547,8 +566,7 @@ public class Cliente extends Thread {
    */
   public boolean bloquearUsuario(String usuarioBloqueado) {
     try {
-      Socket socketCliente = new Socket(ipServidor, PORTA_SERVIDOR_TCP);
-      socketCliente.setSoTimeout(5000);
+      Socket socketCliente = abrirSocketTCP(TIMEOUT_TCP);
 
       ObjectOutputStream saida = new ObjectOutputStream(socketCliente.getOutputStream());
       saida.flush();
@@ -588,8 +606,7 @@ public class Cliente extends Thread {
    */
   public boolean desbloquearUsuario(String usuarioDesbloqueado) {
     try {
-      Socket socketCliente = new Socket(ipServidor, PORTA_SERVIDOR_TCP);
-      socketCliente.setSoTimeout(5000);
+      Socket socketCliente = abrirSocketTCP(TIMEOUT_TCP);
 
       ObjectOutputStream saida = new ObjectOutputStream(socketCliente.getOutputStream());
       saida.flush();
@@ -641,6 +658,12 @@ public class Cliente extends Thread {
     }
   } // fim do metodo enviarConfirmacao
 
+  /*
+   * Metodo: desligarCliente
+   * Funcao: Encerra a escuta UDP e fecha o socket do cliente
+   * Parametros: nenhum
+   * Retorno: void
+   */
   public void desligarCliente() {
     escutaUDPAtiva = false;
     if (endpointCliente != null && !endpointCliente.isClosed()) {

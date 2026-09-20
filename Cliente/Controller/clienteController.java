@@ -13,6 +13,7 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.ResourceBundle;
+import java.util.concurrent.ConcurrentHashMap;
 
 import Model.Cliente;
 import Model.Conversa;
@@ -92,10 +93,17 @@ public class clienteController implements Initializable {
 
   private Pair<String, String> conversaSelecionada = null; // Pair<nomeDaConversa,tipoDeConversa>
   private final HashMap<Pair<String, String>, Conversa> listaConversas = new HashMap<>(); // <Pair<nomeDaConversa,tipoDeConversa>,Conversa>
-  private final HashMap<String, Label> mapaTicks = new HashMap<>(); // Mapa para guardar os ícones dos ticks
+  private final HashMap<String, Label> mapaTicks = new HashMap<>(); // Mapa para guardar os icones dos ticks
+  private final ConcurrentHashMap<String, Integer> statusTicksPendentes = new ConcurrentHashMap<>();
   private final HashMap<Pair<String, String>, ArrayList<String[]>> mensagensNaoLidas = new HashMap<>(); 
   private boolean isVisuUnica = false; // Controle da Visualizacao Unica
 
+  /*
+   * Metodo: initialize
+   * Funcao: Inicializa os eventos e componentes da tela principal
+   * Parametros: location = localizacao do FXML, resources = recursos do FXML
+   * Retorno: void
+   */
   @Override
   public void initialize(URL location, ResourceBundle resources) {
     instancia = this;
@@ -153,9 +161,9 @@ public class clienteController implements Initializable {
 
   /*
    * Metodo: criarCliente
-   * Funcao: Cria um cliente e verifica se ele foi aprovado criar esse cliente
-   * Parametros: nome = nome do usuario, ipServidor = id o servidor
-   * Retorno: retorna se foi aprovado a criacao
+  * Funcao: Cria um cliente e verifica se o login foi aprovado
+  * Parametros: nome = nome do usuario, ipServidor = IP do servidor
+  * Retorno: true se o login foi aprovado, false caso contrario
    */
   public static boolean criarCliente(String nome, String ipServidor) {
     try {
@@ -183,7 +191,7 @@ public class clienteController implements Initializable {
    * Metodo: enviarMensagem
    * Funcao: envia para a classe cliente a mensagem que o usuario quer enviar
    * Parametros:
-   * Retorno: void
+    * Retorno: void
    */
   public void enviarMensagem() {
     if (conversaSelecionada == null)
@@ -288,7 +296,7 @@ public class clienteController implements Initializable {
    * Parametros: mensagem = mensagem recebida, nomeRemetente = usuario que enviou
    * a mensagem,
    * enviadaPorMim = se foi mandada por ele mesmo
-   * Retorno: void
+  * Retorno: HBox com o balao de dialogo montado
    */
     public static HBox criarBalaoDialogo(String mensagem, String nomeRemetente, boolean enviadaPorMim,
       boolean isVisuUnica, String idMensagem, String nomeGrupoConfirmacao, String donoDaMensagem) {
@@ -346,7 +354,11 @@ public class clienteController implements Initializable {
 
       if (instancia != null) {
         instancia.mapaTicks.put(idMensagem, tickLabel);
-      }
+        Integer statusPendente = instancia.statusTicksPendentes.remove(idMensagem);
+        if (statusPendente != null) {
+          aplicarStatusTick(tickLabel, statusPendente);
+        } // fim do if
+      } // fim do if
 
       HBox tickBox = new HBox(tickLabel);
       tickBox.setAlignment(Pos.BOTTOM_RIGHT);
@@ -453,7 +465,7 @@ public class clienteController implements Initializable {
   /*
    * Metodo: sairGrupo
    * Funcao: tira o usuario da conversa e tira a conversa da interface
-   * Parametros: itemConversa = AnchorPane que contem o botao do grupo
+  * Parametros: nomeGrupo = nome do grupo que sera encerrado
    * Retorno: void
    */
   public void sairGrupo(String nomeGrupo) {
@@ -716,7 +728,7 @@ public class clienteController implements Initializable {
 
   /*
    * Metodo: selecionarGrupo
-   * Funcao:
+    * Funcao: Exibe no console o item que acionou o evento.
    * Parametros:
    * Retorno: void
    */
@@ -755,7 +767,7 @@ public class clienteController implements Initializable {
   /*
    * Metodo: abrirListaGrupos
    * Funcao: Pede ao cliente solicitar no servidor os grupos disponiveis
-   * Parametros:
+   * Parametros: nenhum
    * Retorno: void
    */
   public void abrirListaGrupos() {
@@ -773,7 +785,7 @@ public class clienteController implements Initializable {
   } // fim do metodo abrirListaUsuario
 
   /*
-   * Metodo: abrirListaGrupos
+   * Metodo: abrirListaMembros
    * Funcao: Pede ao cliente solicitar no servidor os membros de um grupo
    * especifico
    * Parametros:
@@ -787,7 +799,7 @@ public class clienteController implements Initializable {
 
   /*
    * Metodo: exibirListaConversas
-   * Funcao: Chamado pelo UDP quando a lista chega. Abre o popup com os dados.
+  * Funcao: Exibe no popup a lista recebida do servidor TCP.
    * Parametros: itens = grupos/usuarios, tipo = define se os itens sao grupos ou
    * usuarios
    * Retorno: void
@@ -924,6 +936,8 @@ public class clienteController implements Initializable {
    * Metodo: abrirAlertaVisuUnica
    * Funcao: Abre um popup utilizando a tela de alerta para exibir a mensagem de
    * visualizacao unica
+   * Parametros: remetente = nome do usuario que enviou a mensagem, mensagemSecreta = conteudo da mensagem
+   * Retorno: void
    */
   public static void abrirAlertaVisuUnica(String remetente, String mensagemSecreta) {
     try {
@@ -949,6 +963,8 @@ public class clienteController implements Initializable {
    * Metodo: processarBloqueioUsuario
    * Funcao: Recebe o nome do popup e bloqueia ou desbloqueia o usuario dependendo
    * da opcao escolhida
+   * Parametros: usuario = nome do usuario a ser bloqueado/desbloqueado, isBloquear = true para bloquear, false para desbloquear
+   * Retorno: void
    */
   public void processarBloqueioUsuario(String usuario, boolean isBloquear) {
     if (usuario == null || usuario.trim().isEmpty()) {
@@ -974,6 +990,8 @@ public class clienteController implements Initializable {
   /*
    * Metodo: abrirTelaBloquearUsuario
    * Funcao: Abre o popup para digitar o nome de quem sera bloqueado
+    * Parametros: nenhum
+    * Retorno: void
    */
   public void abrirTelaBloquearUsuario() {
     try {
@@ -999,6 +1017,8 @@ public class clienteController implements Initializable {
    * Metodo: atualizarStatusMensagem
    * Funcao: Muda a imagem do tick (confirm) da mensagem de acordo com o status
    * recebido
+    * Parametros: idMensagem = identificador da mensagem, statusRecebido = novo status
+    * Retorno: void
    */
   public static void atualizarStatusMensagem(String idMensagem, int statusRecebido) {
     if (instancia == null || idMensagem == null) {
@@ -1007,11 +1027,38 @@ public class clienteController implements Initializable {
 
     Platform.runLater(() -> {
       if (instancia == null || !instancia.mapaTicks.containsKey(idMensagem)) {
+        if (instancia != null) {
+          instancia.statusTicksPendentes.merge(idMensagem, statusRecebido,
+              (statusAnterior, novoStatus) -> combinarStatus(statusAnterior, novoStatus));
+        } // fim do if
         return;
       } // fim do if
 
       Label tickLabel = instancia.mapaTicks.get(idMensagem);
+      aplicarStatusTick(tickLabel, statusRecebido);
+    });
+  } // fim do metodo atualizarStatusMensagem
 
+  /*
+   * Metodo: combinarStatus
+   * Funcao: Combina dois status mantendo o status mais avancado
+   * Parametros: statusAnterior = status ja armazenado, novoStatus = novo status
+   * Retorno: status resultante da combinacao
+   */
+  private static int combinarStatus(int statusAnterior, int novoStatus) {
+    if (statusAnterior == -1 || novoStatus == -1) {
+      return -1;
+    } //fim do if
+    return Math.max(statusAnterior, novoStatus);
+  } // fim do metodo combinarStatus
+
+  /*
+   * Metodo: aplicarStatusTick
+   * Funcao: Atualiza o texto e a cor do confirm da mensagem
+   * Parametros: tickLabel = label do confirm, statusRecebido = status recebido
+   * Retorno: void
+   */
+  private static void aplicarStatusTick(Label tickLabel, int statusRecebido) {
       if (statusRecebido == -1) {
         tickLabel.setText(" [X]");
         tickLabel.setStyle("-fx-text-fill: red; -fx-font-weight: bold;");
@@ -1028,13 +1075,14 @@ public class clienteController implements Initializable {
         tickLabel.setText(" \u2713\u2713"); // Dois ticks AZUIS (Lido!)
         tickLabel.setStyle("-fx-text-fill: #34B7F1; -fx-font-weight: bold;");
       } // fim do if
-    });
-  } // fim do metodo atualizarStatusMensagem
+  }
 
 
   /*
    * Metodo: getCliente
    * Funcao: Retorna o objeto cliente
+    * Parametros: nenhum
+    * Retorno: objeto cliente atual
    */
   public Cliente getCliente() {
     return cliente;

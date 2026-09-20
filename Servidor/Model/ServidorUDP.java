@@ -25,6 +25,12 @@ public class ServidorUDP extends Thread {
     private final HashSet<String> recebidos;
     private final HashSet<String> lidos;
 
+    /*
+     * Metodo: RastreioMensagem
+     * Funcao: Cria o rastreamento dos destinatarios de uma mensagem
+     * Parametros: esperados = nomes dos destinatarios esperados
+     * Retorno: void
+     */
     private RastreioMensagem(HashSet<String> esperados) {
       this.esperados = esperados;
       this.recebidos = new HashSet<>();
@@ -42,6 +48,7 @@ public class ServidorUDP extends Thread {
    * Funcao: Inicializar os atributos e abrir a porta UDP
    * Parametros: porta = porta de escuta UDP, servidor = instancia principal da
    * memoria central
+  * Retorno: void
    */
   public ServidorUDP(int porta, Servidor servidor) {
     this.porta = porta;
@@ -269,7 +276,7 @@ public class ServidorUDP extends Thread {
   /*
    * Metodo: encaminharConfirmacao
    * Funcao: Avalia os ticks pendentes no servidor e repassa ao dono original
-   * quando todos estiverem concluídos
+  * quando todos estiverem concluidos
    * Parametros: apdu = pacote de tick que acabou de chegar
    * Retorno: void
    */
