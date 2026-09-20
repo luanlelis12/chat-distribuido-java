@@ -119,7 +119,7 @@ public class ServidorTCP extends Thread {
    * Retorno: boolean
    */
   private boolean validarNomeUsuario(String nome) {
-    return nome != null && nome.trim().length() >= 3 && nome.trim().length() <= 20
+    return nome != null && nome.trim().length() >= 2 && nome.trim().length() <= 20
         && nome.matches("[a-zA-Z0-9_]+") && !nome.equals("SERVIDOR");
   } // fim do metodo validarNomeUsuario
 
