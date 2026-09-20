@@ -2,7 +2,7 @@
 * Autor............: Luan Alves Lelis Costa
 * Matricula........: 202310352
 * Inicio...........: 15/06/2026
-* Ultima alteracao.: 17/09/2026
+* Ultima alteracao.: 20/09/2026
 * Nome.............: menuInicialController.java
 * Funcao...........: Gerencia a interface do menuInicial e comunica com o cliente.java para criar o cliente
 *******************************************************************/
@@ -12,8 +12,8 @@ import java.io.IOException;
 import java.net.URL;
 import java.util.ResourceBundle;
 
+import Controller.clienteController;
 import Network.Descobridor;
-import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
@@ -157,9 +157,7 @@ public class menuInicialController implements Initializable {
    * Retorno: void
    */
   public void fecharAplicacao() {
-    System.out.println("CLIENTE - Fechando aplicacao.");
-    Platform.exit();
-    System.exit(0);
+    clienteController.fecharAplicacao();
   } // fim do metodo fecharAplicacao
 
   /*

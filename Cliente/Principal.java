@@ -2,7 +2,7 @@
 * Autor............: Luan Alves Lelis Costa
 * Matricula........: 202310352
 * Inicio...........: 12/06/2026
-* Ultima alteracao.: 14/09/2026
+* Ultima alteracao.: 20/09/2026
 * Nome.............: Principal.java
 * Funcao...........: Classe principal do cliente, inicia a interface grafica
 *******************************************************************/
@@ -37,8 +37,7 @@ public class Principal extends Application {
     primaryStage.setScene(new Scene(root));
 
     primaryStage.setOnCloseRequest(evento -> {
-      Platform.exit();
-      System.exit(0);
+      clienteController.fecharAplicacao();
     });
 
     primaryStage.show();

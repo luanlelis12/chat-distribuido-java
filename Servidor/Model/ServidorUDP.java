@@ -2,7 +2,7 @@
 * Autor............: Luan Alves Lelis Costa
 * Matricula........: 202310352
 * Inicio...........: 17/06/2026
-* Ultima alteracao.: 19/09/2026
+* Ultima alteracao.: 20/09/2026
 * Nome.............: ServidorUDP.java
 * Funcao...........: Lidar com pacotes rapidos (mensagens, ticks e visualizacao unica) sem garantir conexao
 *******************************************************************/
@@ -70,11 +70,11 @@ public class ServidorUDP extends Thread {
     System.out.println("[UDP] Escutando na porta " + porta);
     while (true) {
       try {
-        byte[] dadosEntrada = new byte[8192];
+        byte[] dadosEntrada = new byte[65507];
         DatagramPacket pacote = new DatagramPacket(dadosEntrada, dadosEntrada.length);
         endpointServidor.receive(pacote);
 
-        ByteArrayInputStream bais = new ByteArrayInputStream(pacote.getData());
+        ByteArrayInputStream bais = new ByteArrayInputStream(pacote.getData(), 0, pacote.getLength());
         ObjectInputStream in = new ObjectInputStream(bais);
         APDU apduRecebida = (APDU) in.readObject();
 
@@ -212,12 +212,21 @@ public class ServidorUDP extends Thread {
           } // fim do if
         } // fim do for
       } else {
-        System.out.println(
-            "      -> AVISO: Todos no grupo bloquearam o envio. Gerando ticks finalizados para destravar a tela do cliente.");
-        APDU tick2 = new APDU("CONFIRM", apdu.getIdMensagem(), 2, "SERVIDOR", apdu.getNomeGrupo(), apdu.getNomeUsuario());
-        enviarObjetoUDP(tick2, usuarioRemetente.getIp(), usuarioRemetente.getPorta());
-        APDU tick3 = new APDU("CONFIRM", apdu.getIdMensagem(), 3, "SERVIDOR", apdu.getNomeGrupo(), apdu.getNomeUsuario());
-        enviarObjetoUDP(tick3, usuarioRemetente.getIp(), usuarioRemetente.getPorta());
+        if (listaDeUsuarios.size() == 2) {
+          System.out.println("      -> NEGADO: O outro usuario do grupo bloqueou o envio.");
+          APDU bloqueio = new APDU("CONFIRM", apdu.getIdMensagem(), -1, "SERVIDOR", apdu.getNomeGrupo(),
+              apdu.getNomeUsuario());
+          enviarObjetoUDP(bloqueio, usuarioRemetente.getIp(), usuarioRemetente.getPorta());
+        } else {
+          System.out.println(
+              "      -> AVISO: Todos no grupo bloquearam o envio. Gerando ticks finalizados para destravar a tela do cliente.");
+          APDU tick2 = new APDU("CONFIRM", apdu.getIdMensagem(), 2, "SERVIDOR", apdu.getNomeGrupo(),
+              apdu.getNomeUsuario());
+          enviarObjetoUDP(tick2, usuarioRemetente.getIp(), usuarioRemetente.getPorta());
+          APDU tick3 = new APDU("CONFIRM", apdu.getIdMensagem(), 3, "SERVIDOR", apdu.getNomeGrupo(),
+              apdu.getNomeUsuario());
+          enviarObjetoUDP(tick3, usuarioRemetente.getIp(), usuarioRemetente.getPorta());
+        } // fim do if
       } // fim do if
     } // fim do synchronized
   } // fim do enviarMensagem
@@ -252,10 +261,8 @@ public class ServidorUDP extends Thread {
     } else if (usuarioRemetente != null) {
       System.out
           .println("      -> NEGADO: Bloqueio entre os usuarios. O Destinatario nao ira receber a mensagem.");
-      APDU tick2 = new APDU("CONFIRM", apdu.getIdMensagem(), 2, "SERVIDOR", null, apdu.getNomeUsuario());
-      enviarObjetoUDP(tick2, usuarioRemetente.getIp(), usuarioRemetente.getPorta());
-      APDU tick3 = new APDU("CONFIRM", apdu.getIdMensagem(), 3, "SERVIDOR", null, apdu.getNomeUsuario());
-      enviarObjetoUDP(tick3, usuarioRemetente.getIp(), usuarioRemetente.getPorta());
+      APDU bloqueio = new APDU("CONFIRM", apdu.getIdMensagem(), -1, "SERVIDOR", null, apdu.getNomeUsuario());
+      enviarObjetoUDP(bloqueio, usuarioRemetente.getIp(), usuarioRemetente.getPorta());
     } // fim do if
   } // fim do enviarMensagemPrivado
 

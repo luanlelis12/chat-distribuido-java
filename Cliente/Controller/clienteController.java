@@ -2,7 +2,7 @@
 * Autor............: Luan Alves Lelis Costa
 * Matricula........: 202310352
 * Inicio...........: 12/06/2026
-* Ultima alteracao.: 18/09/2026
+* Ultima alteracao.: 20/09/2026
 * Nome.............: clienteController.java
 * Funcao...........: Faz a ponte de comunicacao entre a interface e a classe cliente
 *******************************************************************/
@@ -822,7 +822,7 @@ public class clienteController implements Initializable {
    * Parametros: nenhum
    * Retorno: void
    */
-  public void fecharAplicacao() {
+  public static void fecharAplicacao() {
     System.out.println("CLIENTE - Iniciando encerramento da aplicacao...");
     if (cliente != null) {
       cliente.fazerLogout();

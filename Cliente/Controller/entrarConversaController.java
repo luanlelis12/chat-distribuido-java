@@ -2,7 +2,7 @@
 * Autor............: Luan Alves Lelis Costa
 * Matricula........: 202310352
 * Inicio...........: 27/06/2026
-* Ultima alteracao.: 27/06/2026
+* Ultima alteracao.: 20/09/2026
 * Nome.............: entrarConversaController.java
 * Funcao...........: Gerencia a interface e o comunica para o clienteController sobre a criacao de grupo ou criar uma conversa privada com um usuario
 *******************************************************************/
@@ -14,9 +14,13 @@ import javafx.scene.Node;
 import javafx.scene.control.RadioButton;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleGroup;
+import javafx.scene.layout.Pane;
 import javafx.stage.Stage;
 
 public class entrarConversaController {
+
+  @FXML
+  private Pane barraSuperior;
 
   @FXML
   private TextField nomeConversaField;
@@ -24,6 +28,24 @@ public class entrarConversaController {
   private ToggleGroup tipoDeConversa;
 
   private clienteController controladorPai;
+  private double xOffset = 0;
+  private double yOffset = 0;
+
+  @FXML
+  public void initialize() {
+    if (barraSuperior != null) {
+      barraSuperior.setOnMousePressed(event -> {
+        xOffset = event.getSceneX();
+        yOffset = event.getSceneY();
+      });
+
+      barraSuperior.setOnMouseDragged(event -> {
+        Stage janela = (Stage) barraSuperior.getScene().getWindow();
+        janela.setX(event.getScreenX() - xOffset);
+        janela.setY(event.getScreenY() - yOffset);
+      });
+    }
+  }
 
   /*
    * Metodo: confirmarEntrada

@@ -2,7 +2,7 @@
 * Autor............: Luan Alves Lelis Costa
 * Matricula........: 202310352
 * Inicio...........: 12/06/2026
-* Ultima alteracao.: 18/09/2026
+* Ultima alteracao.: 20/09/2026
 * Nome.............: Cliente.java
 * Funcao...........: Gerencia as apdus e a comunicacao com o servidor
 *******************************************************************/
@@ -112,20 +112,25 @@ public class Cliente extends Thread {
     new Thread(() -> {
       try {
         while (!endpointCliente.isClosed()) {
-          byte[] dadosEntrada = new byte[8192];
+          byte[] dadosEntrada = new byte[65507];
           DatagramPacket pacoteRecebido = new DatagramPacket(dadosEntrada, dadosEntrada.length);
           endpointCliente.receive(pacoteRecebido);
 
-          // Extrai o objeto APDU serializado
-          ByteArrayInputStream bais = new ByteArrayInputStream(pacoteRecebido.getData());
-          ObjectInputStream in = new ObjectInputStream(bais);
-          APDU apduRecebida = (APDU) in.readObject();
+          try {
+            // Extrai o objeto APDU serializado usando somente os bytes recebidos.
+            ByteArrayInputStream bais = new ByteArrayInputStream(pacoteRecebido.getData(), 0,
+                pacoteRecebido.getLength());
+            ObjectInputStream in = new ObjectInputStream(bais);
+            APDU apduRecebida = (APDU) in.readObject();
 
-          System.out.println("CLIENTE - Recebeu APDU: " + apduRecebida.getOperacao());
+            System.out.println("CLIENTE - Recebeu APDU: " + apduRecebida.getOperacao());
 
-          new Thread(() -> {
-            processarApdu(apduRecebida);
-          }).start();
+            new Thread(() -> {
+              processarApdu(apduRecebida);
+            }).start();
+          } catch (Exception e) {
+            System.out.println("CLIENTE - AVISO: Pacote UDP invalido ignorado.");
+          }
         } // fim do while
       } catch (java.net.SocketException e) {
         if (endpointCliente != null && endpointCliente.isClosed()) {
@@ -365,7 +370,7 @@ public class Cliente extends Thread {
   public void fazerLogout() {
     try {
       try (Socket socketCliente = new Socket(ipServidor, PORTA_SERVIDOR_TCP)) {
-      socketCliente.setSoTimeout(3000);
+      socketCliente.setSoTimeout(1000);
       ObjectOutputStream saida = new ObjectOutputStream(socketCliente.getOutputStream());
       saida.flush();
       ObjectInputStream entrada = new ObjectInputStream(socketCliente.getInputStream());
