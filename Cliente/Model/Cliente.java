@@ -125,6 +125,13 @@ public class Cliente extends Thread {
           DatagramPacket pacoteRecebido = new DatagramPacket(dadosEntrada, dadosEntrada.length);
           endpointCliente.receive(pacoteRecebido);
 
+          // Atualiza dinamicamente o IP do servidor ativo se o pacote veio de outro lider
+          InetAddress ipRemetente = pacoteRecebido.getAddress();
+          if (ipRemetente != null && (this.ipServidor == null || !ipRemetente.equals(this.ipServidor))) {
+            System.out.println("CLIENTE - Detectada alteracao de Lider no cluster: " + ipRemetente.getHostAddress());
+            this.ipServidor = ipRemetente;
+          }
+
           try {
             // Extrai o objeto APDU serializado usando somente os bytes recebidos.
             ByteArrayInputStream bais = new ByteArrayInputStream(pacoteRecebido.getData(), 0,
@@ -286,10 +293,30 @@ public class Cliente extends Thread {
      * Retorno: socket TCP conectado
      */
     private Socket abrirSocketTCP(int timeout) throws java.io.IOException {
-      Socket socket = new Socket();
-      socket.connect(new InetSocketAddress(ipServidor, PORTA_SERVIDOR_TCP), timeout);
-      socket.setSoTimeout(timeout);
-      return socket;
+      try {
+        Socket socket = new Socket();
+        socket.connect(new InetSocketAddress(ipServidor, PORTA_SERVIDOR_TCP), timeout);
+        socket.setSoTimeout(timeout);
+        return socket;
+      } catch (java.io.IOException e) {
+        System.out.println("CLIENTE - Falha ao conectar ao servidor em "
+            + (ipServidor != null ? ipServidor.getHostAddress() : "null")
+            + ". Procurando novo lider ativo no cluster...");
+        String novoIp = Network.Descobridor.descobrirServidor();
+        if (novoIp != null) {
+          try {
+            this.ipServidor = InetAddress.getByName(novoIp);
+            System.out.println("CLIENTE - Novo lider localizado em: " + novoIp + ". Conectando...");
+            Socket socket = new Socket();
+            socket.connect(new InetSocketAddress(ipServidor, PORTA_SERVIDOR_TCP), timeout);
+            socket.setSoTimeout(timeout);
+            return socket;
+          } catch (Exception ex) {
+            throw new java.io.IOException("Falha ao reconectar ao novo lider (" + novoIp + "): " + ex.getMessage(), ex);
+          }
+        }
+        throw e;
+      }
     }
 
   /*

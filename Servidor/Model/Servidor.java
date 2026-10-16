@@ -9,10 +9,13 @@
 package Model;
 
 import Protocol.SyncPacote;
+import java.io.ByteArrayOutputStream;
+import java.io.ObjectOutputStream;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
@@ -109,6 +112,9 @@ public class Servidor {
 
     iniciarServicosCliente();
 
+    // Notifica os clientes existentes sobre a presenca do novo lider
+    notificarClientesNovaLideranca();
+
     // Notifica os standbys imediatamente com o estado atual que possui
     if (gerenteRedundancia != null) {
       gerenteRedundancia.replicarEstado();
@@ -156,6 +162,50 @@ public class Servidor {
       System.err.println("[ERRO] Falha ao iniciar servicos de cliente: " + e.getMessage());
     } // fim do try-catch
   } // fim do metodo iniciarServicosCliente
+
+  /*
+   * Metodo: notificarClientesNovaLideranca
+   * Funcao: Envia um datagrama UDP a cada cliente online notificando a presenca e IP do novo lider
+   */
+  private void notificarClientesNovaLideranca() {
+    new Thread(() -> {
+      try {
+        Thread.sleep(400); // Pausa graciosa para estabilizar a subida dos servicos
+        List<Usuario> lista;
+        mutex.acquire();
+        try {
+          lista = new ArrayList<>(usuariosOnline.values());
+        } finally {
+          mutex.release();
+        }
+
+        if (lista.isEmpty()) {
+          return;
+        }
+
+        Protocol.APDU apduAviso = new Protocol.APDU("CONFIRM", "0", 0, "SERVIDOR");
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        ObjectOutputStream out = new ObjectOutputStream(baos);
+        out.writeObject(apduAviso);
+        out.flush();
+        byte[] dados = baos.toByteArray();
+
+        try (DatagramSocket socketEnvio = new DatagramSocket()) {
+          for (Usuario u : lista) {
+            try {
+              DatagramPacket pacote = new DatagramPacket(dados, dados.length, u.getIp(), u.getPorta());
+              socketEnvio.send(pacote);
+              System.out.println("[LIDER] Notificado cliente '" + u.getNome() + "' ("
+                  + u.getIp().getHostAddress() + ":" + u.getPorta() + ") sobre nova lideranca.");
+            } catch (Exception ignored) {
+            }
+          }
+        }
+      } catch (Exception e) {
+        System.err.println("[LIDER-AVISO] Falha ao notificar clientes sobre lideranca: " + e.getMessage());
+      }
+    }, "Thread-NotificarClientesLideranca").start();
+  }
 
   /*
    * Metodo: pararServicosCliente
