@@ -246,8 +246,8 @@ public class Servidor {
    * Funcao: Atualiza a memoria central com snapshot de estado recebido do Lider
    */
   public void aplicarSincronizacao(SyncPacote pacote) {
-    if (this.isLider) {
-      return; // Lider nao sobrescreve sua memoria com dados externos
+    if (this.isLider && (!this.usuariosOnline.isEmpty() || !this.grupos.isEmpty())) {
+      return; // Lider com dados locais ativos nao sobrescreve sua memoria com dados externos
     }
     try {
       mutex.acquire();

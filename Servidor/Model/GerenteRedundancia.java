@@ -2,7 +2,7 @@
 * Autor............: Luan Alves Lelis Costa
 * Matricula........: 202310352
 * Inicio...........: 13/10/2026
-* Ultima alteracao.: 13/10/2026
+* Ultima alteracao.: 16/10/2026
 * Nome.............: GerenteRedundancia.java
 * Funcao...........: Implementar algoritmo Bully (Hierarquia Fixa), Heartbeats e Replicacao de Estado
 *******************************************************************/
@@ -36,7 +36,9 @@ public class GerenteRedundancia {
   private volatile long ultimoHeartbeatRecebido = System.currentTimeMillis();
   private final Set<Integer> idsConhecidos = ConcurrentHashMap.newKeySet();
   private final Object lockEnvio = new Object();
+  private final Object lockSincronizacao = new Object();
   private volatile boolean estadoInicialRecebido = false;
+  private volatile int idLiderAtual = -1;
 
   public GerenteRedundancia(Servidor servidor) {
     this.servidor = servidor;
@@ -61,7 +63,7 @@ public class GerenteRedundancia {
       // Inicia thread de escuta do cluster
       new Thread(this::escutarCluster, "Thread-Cluster-Escuta").start();
 
-      // Fase de definicao do ID (Forcado vs Auto-Descoberta)
+      // Fase de definicao do ID (Forcado vs Auto-Descoberta) e sincronizacao de estado
       determinarId();
 
       // Inicia threads de envio periodico de Heartbeat e Watchdog
@@ -76,7 +78,8 @@ public class GerenteRedundancia {
 
   /*
    * Metodo: determinarId
-   * Funcao: Define o ID fixado ou descobre o menor ID disponivel via sondagem na rede
+   * Funcao: Define o ID fixado ou descobre o menor ID disponivel via sondagem na rede,
+   * garantindo a obtencao previa do estado da memoria antes de assumir a lideranca.
    */
   private void determinarId() {
     System.out.println("[REDUNDANCIA] Sondando cluster para mapear os outros nos ativos...");
@@ -106,14 +109,32 @@ public class GerenteRedundancia {
 
     // Avalia papel inicial (Bully: se nao ha nenhum ID menor que o meu ativo, sou o lider!)
     boolean temMenorAtivo = false;
+    boolean haOutrosNos = false;
     for (int outroId : idsConhecidos) {
-      if (outroId != this.id && outroId < this.id) {
-        temMenorAtivo = true;
-        break;
+      if (outroId != this.id) {
+        haOutrosNos = true;
+        if (outroId < this.id) {
+          temMenorAtivo = true;
+        }
       }
     }
 
     if (!temMenorAtivo) {
+      // Sou o servidor com maior autoridade (menor ID)
+      if (haOutrosNos) {
+        // Ha outros servidores na rede ja em execucao (ex: servidor 2 era lider provisorio).
+        // Se ainda nao recebemos o snapshot de estado, solicitamos explicitamente antes de assumir
+        if (!estadoInicialRecebido) {
+          System.out.println("[REDUNDANCIA] Detectados outros servidores ativos no cluster.");
+          System.out.println("[REDUNDANCIA] Solicitando transferencia de estado antes de assumir a lideranca...");
+          pedirEstadoAoCluster();
+          aguardarSincronizacao(2000);
+        }
+      } else {
+        // Primeiro servidor a subir no cluster: estado inicial limpo e legitimo
+        estadoInicialRecebido = true;
+      }
+
       // Envia pulso de preempcao para qualquer lider provisorio liberar as portas
       enviarPacote(new PacoteCluster(PacoteCluster.Tipo.HEARTBEAT, this.id, true, null));
       try {
@@ -125,18 +146,43 @@ public class GerenteRedundancia {
     } else {
       this.ultimoHeartbeatRecebido = System.currentTimeMillis();
       System.out.println("[REDUNDANCIA] Servidor (ID " + this.id + ") operando em modo STANDBY.");
-      pedirEstadoAoLider();
+      if (!estadoInicialRecebido) {
+        pedirEstadoAoCluster();
+      }
     }
   }
 
   /*
-   * Metodo: pedirEstadoAoLider
+   * Metodo: pedirEstadoAoCluster
    * Funcao: Solicita snapshot completo da memoria do cluster ao Lider atual
    */
-  public void pedirEstadoAoLider() {
-    if (this.id != -1 && !servidor.isLider()) {
-      System.out.println("[SYNC] Solicitando snapshot atualizado da memoria ao Lider...");
-      enviarPacote(new PacoteCluster(PacoteCluster.Tipo.SOLICITAR_ESTADO, this.id, false, null));
+  public void pedirEstadoAoCluster() {
+    System.out.println("[SYNC] Solicitando snapshot atualizado da memoria ao cluster...");
+    enviarPacote(new PacoteCluster(PacoteCluster.Tipo.SOLICITAR_ESTADO, this.id, false, null));
+  }
+
+  /*
+   * Metodo: aguardarSincronizacao
+   * Funcao: Bloqueia ate receber o snapshot de estado ou ate atingir timeout de seguranca
+   */
+  private void aguardarSincronizacao(long timeoutMs) {
+    synchronized (lockSincronizacao) {
+      long limite = System.currentTimeMillis() + timeoutMs;
+      while (!estadoInicialRecebido && System.currentTimeMillis() < limite) {
+        long restante = limite - System.currentTimeMillis();
+        if (restante <= 0) {
+          break;
+        }
+        try {
+          lockSincronizacao.wait(restante);
+        } catch (InterruptedException ignored) {
+        }
+      }
+    }
+    if (estadoInicialRecebido) {
+      System.out.println("[SYNC] Estado inicial sincronizado com sucesso antes da promocao!");
+    } else {
+      System.out.println("[SYNC-AVISO] Timeout aguardando sincronizacao do cluster. Prosseguindo...");
     }
   }
 
@@ -182,12 +228,9 @@ public class GerenteRedundancia {
       idsConhecidos.add(remetente);
     }
 
-    // Se este no ainda esta descobrindo seu ID, apenas registra os outros nos
-    if (this.id == -1) {
-      if (pacote.isLider()) {
-        ultimoHeartbeatRecebido = System.currentTimeMillis();
-      }
-      return;
+    if (pacote.isLider()) {
+      idLiderAtual = remetente;
+      ultimoHeartbeatRecebido = System.currentTimeMillis();
     }
 
     switch (pacote.getTipo()) {
@@ -197,45 +240,48 @@ public class GerenteRedundancia {
           enviarPacote(new PacoteCluster(PacoteCluster.Tipo.RESPOSTA_SONDAGEM, this.id, servidor.isLider(), null));
           if (servidor.isLider()) {
             // Lider aproveita para sincronizar o novo no que acabou de entrar
-            new Thread(() -> {
-              try {
-                Thread.sleep(300);
-                replicarEstado();
-              } catch (Exception ignored) {
-              }
-            }).start();
+            enviarSnapshot();
           }
         }
         break;
 
       case RESPOSTA_SONDAGEM:
-        if (pacote.isLider() && remetente < this.id) {
+        if (pacote.isLider()) {
+          idLiderAtual = remetente;
           ultimoHeartbeatRecebido = System.currentTimeMillis();
         }
         break;
 
       case SOLICITAR_ESTADO:
-        if (servidor.isLider()) {
-          System.out.println("[SYNC] Standby (ID " + remetente + ") solicitou o estado. Replicando snapshot...");
-          replicarEstado();
+        // O lider atende a solicitacao enviando o snapshot.
+        // Se este no tiver usuarios/grupos e o solicitante for um novo lider, tambem atende
+        if (servidor.isLider() || (remetente != this.id && (!servidor.usuariosOnline.isEmpty() || !servidor.grupos.isEmpty()))) {
+          System.out.println("[SYNC] No (ID " + remetente + ") solicitou o estado. Enviando snapshot da memoria...");
+          enviarSnapshot();
         }
         break;
 
       case HEARTBEAT:
+        if (this.id == -1) {
+          break; // Ainda em fase de auto-atribuicao de ID
+        }
+
         // ALGORITMO BULLY: Quanto menor o numero, MAIOR a prioridade
         if (remetente < this.id) {
           // Ha um lider de maior prioridade ativo
           ultimoHeartbeatRecebido = System.currentTimeMillis();
+          idLiderAtual = remetente;
 
           // PREEMPCAO: Se eu achava que era lider, devo me rebaixar imediatamente
           if (servidor.isLider()) {
             System.out.println("\n[BULLY-PREEMPCAO] Heartbeat recebido do Servidor com maior prioridade (ID: "
                 + remetente + "). Rebaixando para Standby!");
+            // Transfere o estado para garantir que o novo lider e todos estejam atualizados
+            enviarSnapshot();
             servidor.rebaixarParaStandby();
-            estadoInicialRecebido = false;
-            pedirEstadoAoLider();
+            estadoInicialRecebido = true;
           } else if (!estadoInicialRecebido) {
-            pedirEstadoAoLider();
+            pedirEstadoAoCluster();
           }
         } else if (remetente > this.id && pacote.isLider()) {
           // Um servidor de menor autoridade pensa que e lider, mas eu existo!
@@ -248,11 +294,30 @@ public class GerenteRedundancia {
         break;
 
       case SYNC_ESTADO:
+        if (pacote.getDadosSync() != null) {
+          // Aceita sincronizacao se:
+          // 1. Ainda nao recebeu o estado inicial (durante boot/sondagem); OU
+          // 2. Opera como Standby e a mensagem veio de um lider ou no prioritario
+          boolean aceitar = false;
+          if (!estadoInicialRecebido) {
+            aceitar = true;
+          } else if (!servidor.isLider() && (remetente < this.id || pacote.isLider())) {
+            aceitar = true;
+          }
+
+          if (aceitar) {
+            servidor.aplicarSincronizacao(pacote.getDadosSync());
+            estadoInicialRecebido = true;
+            synchronized (lockSincronizacao) {
+              lockSincronizacao.notifyAll();
+            }
+          }
+        }
+
         if (remetente < this.id || pacote.isLider()) {
           ultimoHeartbeatRecebido = System.currentTimeMillis();
-          if (!servidor.isLider() && pacote.getDadosSync() != null) {
-            estadoInicialRecebido = true;
-            servidor.aplicarSincronizacao(pacote.getDadosSync());
+          if (pacote.isLider()) {
+            idLiderAtual = remetente;
           }
         }
         break;
@@ -281,7 +346,8 @@ public class GerenteRedundancia {
 
   /*
    * Metodo: loopWatchdog
-   * Funcao: Monitora a inatividade do lider. Se expirar, assume a coroa (Bully)
+   * Funcao: Monitora a inatividade do lider. Se expirar, assume a coroa (Bully).
+   * Utiliza backoff baseado no ID para evitar colisoes de promocao.
    */
   private void loopWatchdog() {
     while (executando) {
@@ -292,11 +358,12 @@ public class GerenteRedundancia {
           continue; // Lider nao precisa monitorar outros
         }
 
+        long timeoutEspecifico = TIMEOUT_LIDER_MS + Math.max(0, (this.id - 1) * 400L);
         long tempoSemHeartbeat = System.currentTimeMillis() - ultimoHeartbeatRecebido;
-        if (tempoSemHeartbeat > TIMEOUT_LIDER_MS) {
+        if (tempoSemHeartbeat > timeoutEspecifico) {
           // Timeout excedido! O lider atual caiu.
           System.out.println("\n[BULLY] Timeout do Lider excedido (" + tempoSemHeartbeat + "ms sem heartbeat).");
-          System.out.println("[BULLY] Nenhum no com ID menor respondeu. ASSUMINDO A COROA!");
+          System.out.println("[BULLY] ASSUMINDO A COROA!");
 
           servidor.promoverParaLider();
           // Notifica imediatamente o cluster para rebaixar eventuais nos concorrentes
@@ -316,9 +383,14 @@ public class GerenteRedundancia {
    * Funcao: Envia o snapshot da memoria central para os nos Standby via Multicast
    */
   public void replicarEstado() {
-    if (!servidor.isLider()) {
-      return;
-    }
+    enviarSnapshot();
+  }
+
+  /*
+   * Metodo: enviarSnapshot
+   * Funcao: Serializa e transmite o estado atual da memoria central no canal do cluster
+   */
+  public void enviarSnapshot() {
     new Thread(() -> {
       try {
         servidor.mutex.acquire();
@@ -329,7 +401,7 @@ public class GerenteRedundancia {
           servidor.mutex.release();
         }
 
-        enviarPacote(new PacoteCluster(PacoteCluster.Tipo.SYNC_ESTADO, this.id, true, sync));
+        enviarPacote(new PacoteCluster(PacoteCluster.Tipo.SYNC_ESTADO, this.id, servidor.isLider(), sync));
         System.out.println("[SYNC-PUSH] Estado replicado no canal do cluster ("
             + sync.getUsuariosOnline().size() + " usuario(s), "
             + sync.getGrupos().size() + " grupo(s)).");
