@@ -20,13 +20,15 @@ public class ServidorTCP extends Thread {
   private static final int TIMEOUT_TCP = 5000;
   private int porta;
   private Servidor servidor;
+  private ServerSocket serverSocket;
+  private volatile boolean executando = true;
 
   /*
    * Metodo: ServidorTCP (Construtor)
    * Funcao: Inicializar os atributos da thread tcp
    * Parametros: porta = porta de escuta, servidor = instancia principal da
    * memoria central
-  * Retorno: void
+   * Retorno: void
    */
   public ServidorTCP(int porta, Servidor servidor) {
     this.porta = porta;
@@ -41,17 +43,55 @@ public class ServidorTCP extends Thread {
    */
   @Override
   public void run() {
-    try (ServerSocket serverSocket = new ServerSocket(porta)) {
-      System.out.println("[TCP] Escutando na porta " + porta);
-      while (true) {
+    int tentativas = 5;
+    while (executando && tentativas > 0) {
+      try {
+        this.serverSocket = new ServerSocket();
+        this.serverSocket.setReuseAddress(true);
+        this.serverSocket.bind(new java.net.InetSocketAddress(porta));
+        System.out.println("[TCP] Escutando na porta " + porta);
+        break;
+      } catch (Exception e) {
+        tentativas--;
+        if (tentativas == 0) {
+          System.out.println("[TCP-ERRO] Erro Critico na porta " + porta + ": " + e.getMessage());
+          return;
+        }
+        try {
+          Thread.sleep(300);
+        } catch (InterruptedException ignored) {
+        }
+      }
+    }
+
+    try {
+      while (executando && serverSocket != null && !serverSocket.isClosed()) {
         Socket clientSocket = serverSocket.accept();
         clientSocket.setSoTimeout(TIMEOUT_TCP);
         new Thread(() -> processarConexao(clientSocket)).start();
       } // fim do while
     } catch (Exception e) {
-      System.out.println("[TCP-ERRO] Erro Critico na porta " + porta);
-    } // fim do try-catch
+      if (executando) {
+        System.out.println("[TCP-ERRO] Erro no accept da porta " + porta + ": " + e.getMessage());
+      }
+    } finally {
+      parar();
+    }
   } // fim do metodo run
+
+  /*
+   * Metodo: parar
+   * Funcao: Fecha o serverSocket e encerra o loop de escuta
+   */
+  public void parar() {
+    this.executando = false;
+    try {
+      if (this.serverSocket != null && !this.serverSocket.isClosed()) {
+        this.serverSocket.close();
+      }
+    } catch (Exception ignored) {
+    }
+  }
 
   /*
    * Metodo: processarConexao
@@ -156,6 +196,9 @@ public class ServidorTCP extends Thread {
         saida.writeObject(registrado ? "OK: registrado com sucesso" : "ERRO: nome de usuario em uso");
         saida.flush();
       } // fim do if
+      if (registrado) {
+        servidor.notificarAlteracaoMemoria();
+      }
     } catch (Exception e) {
       System.err.println("[TCP-ERRO] Falha ao registrar usuario: " + e.getMessage());
       e.printStackTrace();
@@ -260,6 +303,9 @@ public class ServidorTCP extends Thread {
         saida.writeObject(sucesso ? "OK: entrou no grupo" : "ERRO: falhou ao entrar no grupo");
         saida.flush();
       } // fim do if
+      if (sucesso) {
+        servidor.notificarAlteracaoMemoria();
+      }
     } catch (Exception e) {
       System.err.println("[TCP-ERRO] Falha ao inserir usuario no grupo: " + e.getMessage());
       e.printStackTrace();
@@ -290,6 +336,9 @@ public class ServidorTCP extends Thread {
         saida.writeObject(removido ? "OK: Saiu do grupo" : "ERRO: Usuario nao encontrado");
         saida.flush();
       } // fim do if
+      if (removido) {
+        servidor.notificarAlteracaoMemoria();
+      }
     } catch (Exception e) {
       System.err.println("[TCP-ERRO] Falha ao responder saida do grupo: " + e.getMessage());
     } // fim do try-catch
@@ -315,6 +364,9 @@ public class ServidorTCP extends Thread {
         saida.writeObject(bloqueado ? "OK: Bloqueou com sucesso" : "ERRO: Falha ao bloquear");
         saida.flush();
       } // fim do if
+      if (bloqueado) {
+        servidor.notificarAlteracaoMemoria();
+      }
     } catch (Exception e) {
       System.err.println("[TCP-ERRO] Falha ao bloquear usuario: " + e.getMessage());
       e.printStackTrace();
@@ -341,6 +393,9 @@ public class ServidorTCP extends Thread {
         saida.writeObject(desbloqueado ? "OK: Desbloqueou com sucesso" : "ERRO: Falha ao desbloquear");
         saida.flush();
       } // fim do if
+      if (desbloqueado) {
+        servidor.notificarAlteracaoMemoria();
+      }
     } catch (Exception e) {
       System.err.println("[TCP-ERRO] Falha ao desbloquear usuario: " + e.getMessage());
       e.printStackTrace();
@@ -376,6 +431,9 @@ public class ServidorTCP extends Thread {
         saida.writeObject(removido ? "OK: Logout com sucesso" : "ERRO: Usuario nao encontrado.");
         saida.flush();
       } // fim do if
+      if (removido) {
+        servidor.notificarAlteracaoMemoria();
+      }
     } catch (Exception e) {
       System.err.println("[TCP-ERRO] Falha ao processar logout: " + e.getMessage());
       e.printStackTrace();

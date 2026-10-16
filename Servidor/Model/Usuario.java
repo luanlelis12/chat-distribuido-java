@@ -2,7 +2,7 @@
 * Autor............: Luan Alves Lelis Costa
 * Matricula........: 202310352
 * Inicio...........: 12/06/2026
-* Ultima alteracao.: 15/09/2026
+* Ultima alteracao.: 13/10/2026
 * Nome.............: Usuario.java
 * Funcao...........: Representa um usuario conectado ao servidor, com seu IP, porta e nome
 *******************************************************************/
@@ -12,7 +12,8 @@ package Model;
 import java.net.InetAddress;
 import java.util.HashSet;
 
-public class Usuario {
+public class Usuario implements java.io.Serializable {
+  private static final long serialVersionUID = 1L;
   InetAddress ip;
   String nome;
   int porta;

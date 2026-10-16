@@ -42,6 +42,7 @@ public class ServidorUDP extends Thread {
   private int porta;
   private Servidor servidor;
   private DatagramSocket endpointServidor;
+  private volatile boolean executando = true;
 
   /*
    * Metodo: ServidorUDP (Construtor)
@@ -53,11 +54,6 @@ public class ServidorUDP extends Thread {
   public ServidorUDP(int porta, Servidor servidor) {
     this.porta = porta;
     this.servidor = servidor;
-    try {
-      this.endpointServidor = new DatagramSocket(porta);
-    } catch (Exception e) {
-      System.out.println("[UDP-ERRO] Falha ao iniciar Servidor UDP.");
-    } // fim do try-catch
   } // fim do ServidorUDP
 
   /*
@@ -69,13 +65,33 @@ public class ServidorUDP extends Thread {
    */
   @Override
   public void run() {
-    if (endpointServidor == null) {
+    int tentativas = 5;
+    while (executando && tentativas > 0) {
+      try {
+        this.endpointServidor = new DatagramSocket(null);
+        this.endpointServidor.setReuseAddress(true);
+        this.endpointServidor.bind(new java.net.InetSocketAddress(porta));
+        break;
+      } catch (Exception e) {
+        tentativas--;
+        if (tentativas == 0) {
+          System.out.println("[UDP-ERRO] Falha ao iniciar Servidor UDP na porta " + porta + ": " + e.getMessage());
+          return;
+        }
+        try {
+          Thread.sleep(300);
+        } catch (InterruptedException ignored) {
+        }
+      }
+    }
+
+    if (endpointServidor == null || endpointServidor.isClosed()) {
       System.err.println("[UDP-ERRO] Escuta UDP nao iniciada porque o socket nao foi criado.");
       return;
     }
 
     System.out.println("[UDP] Escutando na porta " + porta);
-    while (true) {
+    while (executando) {
       try {
         byte[] dadosEntrada = new byte[65507];
         DatagramPacket pacote = new DatagramPacket(dadosEntrada, dadosEntrada.length);
@@ -99,10 +115,26 @@ public class ServidorUDP extends Thread {
         }).start();
 
       } catch (Exception e) {
-        System.err.println("[UDP-ERRO] Falha ao receber APDU: " + e.getMessage());
+        if (executando) {
+          System.err.println("[UDP-ERRO] Falha ao receber APDU: " + e.getMessage());
+        }
       } // fim do try-catch
     } // fim do while
   } // fim do run
+
+  /*
+   * Metodo: parar
+   * Funcao: Fecha o socket UDP e finaliza o loop da thread
+   */
+  public void parar() {
+    this.executando = false;
+    try {
+      if (this.endpointServidor != null && !this.endpointServidor.isClosed()) {
+        this.endpointServidor.close();
+      }
+    } catch (Exception ignored) {
+    }
+  }
 
   /*
    * Metodo: processarApduUDP
