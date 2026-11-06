@@ -8,6 +8,7 @@
 *******************************************************************/
 package Protocol;
 
+import Model.Servidor;
 import Model.Usuario;
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -18,11 +19,13 @@ public class SyncPacote implements Serializable {
   private static final long serialVersionUID = 1L;
 
   private final int idOrigem;
+  private final int conjuntoOrigem;
   private final Map<String, Usuario> usuariosOnline;
   private final Map<String, ArrayList<Usuario>> grupos;
 
   public SyncPacote(int idOrigem, Map<String, Usuario> usuariosOnline, Map<String, ArrayList<Usuario>> grupos) {
     this.idOrigem = idOrigem;
+    this.conjuntoOrigem = Servidor.calcularConjuntoPorId(idOrigem);
     // Copia defensiva para isolamento e integridade durante a serializacao
     this.usuariosOnline = new ConcurrentHashMap<>(usuariosOnline);
     this.grupos = new ConcurrentHashMap<>();
@@ -33,6 +36,10 @@ public class SyncPacote implements Serializable {
 
   public int getIdOrigem() {
     return idOrigem;
+  }
+
+  public int getConjuntoOrigem() {
+    return conjuntoOrigem;
   }
 
   public Map<String, Usuario> getUsuariosOnline() {

@@ -133,7 +133,8 @@ public class ServidorTCP extends Thread {
             desbloquearUsuario(apdu.getNomeUsuario(), apdu.getDestinatario(), saida);
             break;
           case "JOIN":
-            inserirNoGrupo(apdu.getNomeGrupo(), apdu.getNomeUsuario(), saida);
+            inserirNoGrupo(apdu.getNomeGrupo(), apdu.getNomeUsuario(), socket.getInetAddress(),
+                apdu.getPortaClienteUDP(), saida);
             break;
           case "LEAVE":
             sairDoGrupo(apdu.getNomeGrupo(), apdu.getNomeUsuario(), saida);
@@ -271,20 +272,32 @@ public class ServidorTCP extends Thread {
    * Metodo: inserirNoGrupo
    * Funcao: Insere o usuario num grupo especifico criando a lista caso ele ainda
    * nao exista
-   * Parametros: nomeGrupo = grupo alvo, nomeUsuario = usuario a inserir, saida =
-   * fluxo TCP
+   * Parametros: nomeGrupo = grupo alvo, nomeUsuario = usuario a inserir, ip = IP do cliente,
+   * portaUDP = porta UDP do cliente, saida = fluxo TCP
    * Retorno: void
    */
-  public void inserirNoGrupo(String nomeGrupo, String nomeUsuario, ObjectOutputStream saida) {
+  public void inserirNoGrupo(String nomeGrupo, String nomeUsuario, InetAddress ip, int portaUDP,
+      ObjectOutputStream saida) {
     String nomeGrupoValido = nomeGrupo != null ? nomeGrupo.trim() : "";
     String nomeUsuarioValido = nomeUsuario != null ? nomeUsuario.trim() : "";
     Usuario usuarioReal = servidor.usuariosOnline.get(nomeUsuarioValido);
     boolean sucesso = false;
 
+    // Caso o usuario tenha feito login noutro conjunto e o pacote Multicast tenha atrasado
+    // ou este servidor tenha subido depois, sincroniza o usuario automaticamente no JOIN
+    if (usuarioReal == null && validarNomeUsuario(nomeUsuarioValido) && ip != null && portaUDP > 0) {
+      usuarioReal = new Usuario(ip, nomeUsuarioValido, portaUDP);
+      servidor.usuariosOnline.put(nomeUsuarioValido, usuarioReal);
+      System.out.println("      -> [SYNC-AUTO] Usuario '" + nomeUsuarioValido
+          + "' adicionado a lista global de usuarios online deste conjunto.");
+    }
+
     if (usuarioReal != null) {
       sucesso = true;
       if (servidor.grupos.containsKey(nomeGrupoValido)) {
-        if (!servidor.grupos.get(nomeGrupoValido).contains(usuarioReal)) {
+        boolean jaMembro = servidor.grupos.get(nomeGrupoValido).stream()
+            .anyMatch(u -> u.getNome().equals(nomeUsuarioValido));
+        if (!jaMembro) {
           servidor.grupos.get(nomeGrupoValido).add(usuarioReal);
           System.out.println("      -> SUCESSO: '" + nomeUsuarioValido + "' entrou no grupo existente '" + nomeGrupoValido + "'.");
         } else {

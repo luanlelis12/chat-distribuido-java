@@ -160,19 +160,33 @@ public class clienteController implements Initializable {
   } // fim do metodo initialize
 
   /*
+   * Metodo: calcularConjuntoAlvo
+   * Funcao: Auxiliar no controller para identificar o conjunto [A..I], [J..R] ou [S..Z]
+   * e a respectiva porta TCP (6789, 6790 ou 6791) de um grupo ou utilizador
+   */
+  public static int calcularConjuntoAlvo(String chave) {
+    return Cliente.calcularConjuntoPorNome(chave);
+  }
+
+  /*
    * Metodo: criarCliente
-  * Funcao: Cria um cliente e verifica se o login foi aprovado
-  * Parametros: nome = nome do usuario, ipServidor = IP do servidor
-  * Retorno: true se o login foi aprovado, false caso contrario
+   * Funcao: Cria um cliente e verifica se o login foi aprovado no conjunto correspondente
+   * Parametros: nome = nome do usuario, ipServidor = IP do servidor
+   * Retorno: true se o login foi aprovado, false caso contrario
    */
   public static boolean criarCliente(String nome, String ipServidor) {
     try {
+      int conjunto = calcularConjuntoAlvo(nome);
+      int portaTCP = Cliente.calcularPortaTCPPorConjunto(conjunto);
+      System.out.println("CONTROLLER - Iniciando cliente '" + nome + "' -> Conjunto "
+          + conjunto + " " + Cliente.obterFaixaConjunto(conjunto) + " (Porta TCP: " + portaTCP + ")");
+
       cliente = new Cliente(nome, ipServidor);
       boolean aprovado = cliente.fazerLogin();
 
       // Verifica se o login do cliente foi aprovada
       if (aprovado) {
-        System.out.println("CLIENTE - Login aprovado!");
+        System.out.println("CLIENTE - Login aprovado no Conjunto " + conjunto + "!");
         cliente.iniciarEscutaUDP();
         return true;
       } else {
@@ -190,8 +204,9 @@ public class clienteController implements Initializable {
   /*
    * Metodo: enviarMensagem
    * Funcao: envia para a classe cliente a mensagem que o usuario quer enviar
+   * roteando para o conjunto correspondente ao grupo ou destinatario privado
    * Parametros:
-    * Retorno: void
+   * Retorno: void
    */
   public void enviarMensagem() {
     if (conversaSelecionada == null)
@@ -202,7 +217,13 @@ public class clienteController implements Initializable {
 
     if (mensagem.equals(""))
       return;
-    System.out.println("CLIENTE - enviando mensagem \"" + mensagem + "\"");
+
+    String alvo = conversaSelecionada.getKey();
+    int conjuntoAlvo = calcularConjuntoAlvo(alvo);
+    int portaUDPAlvo = Cliente.calcularPortaUDPPorConjunto(conjuntoAlvo);
+    System.out.println("CONTROLLER - Enviando mensagem \"" + mensagem + "\" para '" + alvo
+        + "' -> Conjunto " + conjuntoAlvo + " " + Cliente.obterFaixaConjunto(conjuntoAlvo)
+        + " (UDP " + portaUDPAlvo + ")");
 
     String msgId = null;
     if (conversaSelecionada.getValue().equals(GRUPO)) {

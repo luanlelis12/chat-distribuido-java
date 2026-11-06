@@ -100,11 +100,19 @@ public class ServidorUDP extends Thread {
         ByteArrayInputStream bais = new ByteArrayInputStream(pacote.getData(), 0, pacote.getLength());
         ObjectInputStream in = new ObjectInputStream(bais);
         APDU apduRecebida = (APDU) in.readObject();
+        InetAddress ipRemetente = pacote.getAddress();
 
         new Thread(() -> {
           try {
             servidor.mutex.acquire();
             try {
+              String nomeRem = apduRecebida.getNomeUsuario();
+              if (nomeRem != null && !nomeRem.trim().isEmpty() && !nomeRem.equals("SERVIDOR")
+                  && apduRecebida.getPortaClienteUDP() > 0
+                  && !servidor.usuariosOnline.containsKey(nomeRem.trim())) {
+                servidor.usuariosOnline.put(nomeRem.trim(),
+                    new Usuario(ipRemetente, nomeRem.trim(), apduRecebida.getPortaClienteUDP()));
+              }
               processarApduUDP(apduRecebida);
             } finally {
               servidor.mutex.release();
