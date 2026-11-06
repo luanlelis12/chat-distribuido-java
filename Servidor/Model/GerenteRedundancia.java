@@ -35,6 +35,8 @@ public class GerenteRedundancia {
   private volatile boolean executando = true;
   private volatile long ultimoHeartbeatRecebido = System.currentTimeMillis();
   private final Set<Integer> idsConhecidos = ConcurrentHashMap.newKeySet();
+  private final ConcurrentHashMap<Integer, InetAddress> ipsLideresConjunto = new ConcurrentHashMap<>();
+  private final ConcurrentHashMap<Integer, SyncPacote> pacotesSyncPendentes = new ConcurrentHashMap<>();
   private final Object lockEnvio = new Object();
   private final Object lockSincronizacao = new Object();
   private volatile boolean estadoConjuntoRecebido = false;
@@ -47,6 +49,14 @@ public class GerenteRedundancia {
 
   public int getId() {
     return id;
+  }
+
+  /*
+   * Metodo: obterIpLiderConjunto
+   * Funcao: Retorna o ultimo InetAddress conhecido do Lider ativo do conjunto informado (1, 2 ou 3)
+   */
+  public InetAddress obterIpLiderConjunto(int conjuntoAlvo) {
+    return ipsLideresConjunto.get(conjuntoAlvo);
   }
 
   /*
@@ -126,6 +136,23 @@ public class GerenteRedundancia {
       idsConhecidos.add(this.id);
       System.out.println("[REDUNDANCIA] Auto-atribuicao finalizada! ID atribuido: " + this.id);
     } // fim do if
+
+    // Aplica eventuais snapshots recebidos durante a janela de sondagem (quando id ainda era -1)
+    if (!pacotesSyncPendentes.isEmpty()) {
+      for (SyncPacote pendente : pacotesSyncPendentes.values()) {
+        if (pendente.getConjuntoOrigem() != servidor.getConjunto()) {
+          servidor.aplicarSincronizacao(pendente);
+          estadoGlobalRecebido = true;
+        }
+      }
+      SyncPacote pendenteMesmoConj = pacotesSyncPendentes.get(servidor.getConjunto());
+      if (pendenteMesmoConj != null) {
+        servidor.aplicarSincronizacao(pendenteMesmoConj);
+        estadoGlobalRecebido = true;
+        estadoConjuntoRecebido = true;
+      }
+      pacotesSyncPendentes.clear();
+    }
 
     // Avalia papel inicial no seu conjunto (Bully por Particao: se nao ha nenhum ID
     // menor do mesmo conjunto ativo, sou o lider!)
@@ -242,7 +269,7 @@ public class GerenteRedundancia {
         Object obj = ois.readObject();
 
         if (obj instanceof PacoteCluster) {
-          processarMensagemCluster((PacoteCluster) obj);
+          processarMensagemCluster((PacoteCluster) obj, pacoteRecebido.getAddress());
         } // fim do if
       } catch (Exception e) {
         if (!executando) {
@@ -256,7 +283,7 @@ public class GerenteRedundancia {
    * Metodo: processarMensagemCluster
    * Funcao: Trata mensagens de sondagem, resposta, heartbeat e sincronizacao
    */
-  private void processarMensagemCluster(PacoteCluster pacote) {
+  private void processarMensagemCluster(PacoteCluster pacote, InetAddress enderecoRemetente) {
     int remetente = pacote.getIdRemetente();
 
     // Filtro de loopback: ignora mensagens enviadas por este proprio no
@@ -266,6 +293,10 @@ public class GerenteRedundancia {
 
     if (remetente > 0) {
       idsConhecidos.add(remetente);
+      if (pacote.isLider() && enderecoRemetente != null) {
+        int conjRem = Servidor.calcularConjuntoPorId(remetente);
+        ipsLideresConjunto.put(conjRem, enderecoRemetente);
+      }
     } // fim do if
 
     boolean pertenceAoMesmoConjunto = mesmoConjunto(remetente);
@@ -341,6 +372,12 @@ public class GerenteRedundancia {
         break;
 
       case SYNC_ESTADO:
+        if (this.id == -1) {
+          if (pacote.getDadosSync() != null) {
+            pacotesSyncPendentes.put(pacote.getDadosSync().getConjuntoOrigem(), pacote.getDadosSync());
+          }
+          break;
+        } // fim do if
         if (pacote.getDadosSync() != null) {
           boolean aceitar = false;
           if (pertenceAoMesmoConjunto) {
@@ -358,11 +395,9 @@ public class GerenteRedundancia {
               aceitar = true;
             } // fim do if-else
           } else {
-            // Outro conjunto: aceita sincronizacao GLOBAL de usuariosOnline vinda de outros Lideres
-            // (ou durante boot inicial) sem afetar os grupos locais desta particao
-            if (pacote.isLider() || !estadoGlobalRecebido) {
-              aceitar = true;
-            } // fim do if
+            // Outro conjunto: aceita sincronizacao GLOBAL de usuariosOnline vinda de outros conjuntos
+            // sem afetar os grupos locais desta particao
+            aceitar = true;
           } // fim do if-else
 
           if (aceitar) {

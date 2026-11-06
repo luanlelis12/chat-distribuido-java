@@ -4,12 +4,13 @@
 * Inicio...........: 12/06/2026
 * Ultima alteracao.: 20/09/2026
 * Nome.............: Cliente.java
-* Funcao...........: Gerencia as apdus e a comunicacao com o servidor
+* Funcao...........: Gerencia as apdus e a comunicacao com o servidor (Thin Client)
 *******************************************************************/
 package Model;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.DatagramPacket;
@@ -18,149 +19,38 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.NetworkInterface;
 import java.net.Socket;
+import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.Enumeration;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import Controller.clienteController;
-
-import java.nio.charset.StandardCharsets;
-
+import Network.Descobridor;
 import Protocol.APDU;
 
 public class Cliente extends Thread {
 
-  public static final int PORTA_SERVIDOR_UDP_BASE = 7777;
-  public static final int PORTA_SERVIDOR_TCP_BASE = 6789;
-  private final int PORTA_SERVIDOR_UDP = PORTA_SERVIDOR_UDP_BASE;
-  private final int PORTA_SERVIDOR_TCP = PORTA_SERVIDOR_TCP_BASE;
+  private volatile int PORTA_SERVIDOR_UDP = 7777;
+  private volatile int PORTA_SERVIDOR_TCP = 6789;
   private final int TIMEOUT_TCP = 5000;
-  private final int TIMEOUT_LIST_CONJUNTO = 2000;
   private final int TIMEOUT_LOGOUT = 1000;
+  private final int TIMEOUT_TICK1_UDP_MS = 1200;
 
   private int portaClienteUDP;
 
   private final String GRUPO = "grupo";
   private final String PRIVADO = "priv";
+  private final String BLOQUEIO = "bloqueio";
 
   private String nomeCliente;
   private InetAddress ipCliente;
   private InetAddress ipServidor;
-  private final InetAddress[] ipsConjunto = new InetAddress[4];
   private DatagramSocket endpointCliente;
   private volatile boolean escutaUDPAtiva = false;
-
-  /*
-   * Metodo: calcularConjuntoPorNome
-   * Funcao: Determina a qual conjunto (1, 2 ou 3) uma chave (nomeGrupo, nomeCliente ou destinatario)
-   * pertence com base na sua primeira letra:
-   * - Conjunto 1: [A..I]
-   * - Conjunto 2: [J..R]
-   * - Conjunto 3: [S..Z]
-   */
-  public static int calcularConjuntoPorNome(String chave) {
-    if (chave == null || chave.trim().isEmpty()) {
-      return 1;
-    }
-    char inicial = Character.toUpperCase(chave.trim().charAt(0));
-    if (inicial >= 'A' && inicial <= 'I') {
-      return 1; // Conjunto 1: [A..I]
-    } else if (inicial >= 'J' && inicial <= 'R') {
-      return 2; // Conjunto 2: [J..R]
-    } else if (inicial >= 'S' && inicial <= 'Z') {
-      return 3; // Conjunto 3: [S..Z]
-    }
-    return 1; // Fallback padrao para Conjunto 1
-  }
-
-  /*
-   * Metodo: obterFaixaConjunto
-   * Funcao: Retorna a representacao textual da faixa de letras do conjunto (1, 2 ou 3)
-   */
-  public static String obterFaixaConjunto(int conjunto) {
-    switch (conjunto) {
-      case 1:
-        return "[A..I]";
-      case 2:
-        return "[J..R]";
-      case 3:
-        return "[S..Z]";
-      default:
-        return "[A..I]";
-    }
-  }
-
-  /*
-   * Metodo: calcularPortaTCPPorConjunto
-   * Funcao: Retorna a porta TCP do lider do conjunto informado (6789, 6790 ou 6791)
-   */
-  public static int calcularPortaTCPPorConjunto(int conjunto) {
-    return PORTA_SERVIDOR_TCP_BASE + (conjunto - 1);
-  }
-
-  /*
-   * Metodo: calcularPortaUDPPorConjunto
-   * Funcao: Retorna a porta UDP do lider do conjunto informado (7777, 7778 ou 7779)
-   */
-  public static int calcularPortaUDPPorConjunto(int conjunto) {
-    return PORTA_SERVIDOR_UDP_BASE + (conjunto - 1);
-  }
-
-  /*
-   * Metodo: calcularPortaTCPPorNome
-   * Funcao: Calcula diretamente a porta TCP (6789, 6790 ou 6791) a partir da letra inicial do nome
-   */
-  public static int calcularPortaTCPPorNome(String chave) {
-    int conjunto = calcularConjuntoPorNome(chave);
-    return calcularPortaTCPPorConjunto(conjunto);
-  }
-
-  /*
-   * Metodo: calcularPortaUDPPorNome
-   * Funcao: Calcula diretamente a porta UDP (7777, 7778 ou 7779) a partir da letra inicial do nome
-   */
-  public static int calcularPortaUDPPorNome(String chave) {
-    int conjunto = calcularConjuntoPorNome(chave);
-    return calcularPortaUDPPorConjunto(conjunto);
-  }
-
-  /*
-   * Metodo: obterChaveRoteamentoAPDU
-   * Funcao: Determina qual string define o conjunto de destino de uma APDU conforme a regra de negocio:
-   * - Operacoes de Grupo (JOIN, LEAVE, MEMBERS, SEND, SENDVU de grupo): primeira letra de nomeGrupo
-   * - Mensagem Privada (SENDPVT, SENDVU privado): primeira letra de destinatario
-   * - Operacoes Globais de Utilizador (REGISTER, LOGOUT, BLOCK, UNBLOCK, USERS): primeira letra de nomeUsuario
-   * - Confirmacao (CONFIRM): nomeGrupo (se mensagem de grupo) ou nomeUsuario (se mensagem privada recebida)
-   */
-  public String obterChaveRoteamentoAPDU(APDU apdu) {
-    if (apdu == null || apdu.getOperacao() == null) {
-      return this.nomeCliente;
-    }
-    String op = apdu.getOperacao();
-    switch (op) {
-      case "JOIN":
-      case "LEAVE":
-      case "MEMBERS":
-      case "SEND":
-        return apdu.getNomeGrupo();
-      case "SENDPVT":
-        return apdu.getDestinatario();
-      case "SENDVU":
-        return (apdu.getDestinatario() != null && !apdu.getDestinatario().trim().isEmpty())
-            ? apdu.getDestinatario()
-            : apdu.getNomeGrupo();
-      case "CONFIRM":
-        return (apdu.getNomeGrupo() != null && !apdu.getNomeGrupo().trim().isEmpty())
-            ? apdu.getNomeGrupo()
-            : this.nomeCliente;
-      case "REGISTER":
-      case "LOGOUT":
-      case "BLOCK":
-      case "UNBLOCK":
-      case "USERS":
-      default:
-        return this.nomeCliente;
-    }
-  }
+  private volatile boolean logoutRealizado = false;
+  private Thread shutdownHookLogout;
+  private final Set<String> mensagensAguardandoTick1 = ConcurrentHashMap.newKeySet();
 
   /*
    * Metodo: Cliente
@@ -170,14 +60,25 @@ public class Cliente extends Thread {
    */
   public Cliente(String nomeCliente, String ipServidor) {
     try {
-      this.nomeCliente = nomeCliente;
+      this.nomeCliente = nomeCliente != null ? nomeCliente.trim() : "";
       this.ipCliente = descobrirIpLocal();
       this.ipServidor = InetAddress.getByName(ipServidor);
+      this.PORTA_SERVIDOR_TCP = Descobridor.getUltimaPortaTCPDescoberta();
+      this.PORTA_SERVIDOR_UDP = Descobridor.getUltimaPortaUDPDescoberta();
 
       this.portaClienteUDP = 5000 + (int) (Math.random() * 1000);
       this.endpointCliente = new DatagramSocket(portaClienteUDP);
 
-      System.out.println("CLIENTE estabelecido: nome = " + nomeCliente + " / ip = " + ipCliente);
+      this.shutdownHookLogout = new Thread(() -> {
+        if (!logoutRealizado) {
+          fazerLogout();
+          desligarCliente();
+        }
+      }, "ShutdownHook-Logout");
+      Runtime.getRuntime().addShutdownHook(this.shutdownHookLogout);
+
+      System.out.println("CLIENTE estabelecido: nome = " + this.nomeCliente + " / ip = " + ipCliente
+          + " / servidor = " + this.ipServidor.getHostAddress() + ":" + PORTA_SERVIDOR_TCP);
     } catch (Exception e) {
       System.out.println("ERRO: Nao foi possivel inicializar o cliente. " + e.getMessage());
       e.printStackTrace();
@@ -185,10 +86,31 @@ public class Cliente extends Thread {
   } // fim do construtor
 
   /*
+   * Metodo: formatarDestinoServidorTCP
+   * Funcao: Formata a identificacao do servidor destino (IP e Porta TCP) para o log
+   */
+  private String formatarDestinoServidorTCP(Socket socket) {
+    if (socket == null) {
+      return "Servidor Desconhecido";
+    }
+    String ip = socket.getInetAddress() != null ? socket.getInetAddress().getHostAddress() : "desconhecido";
+    return "Servidor [" + ip + ":" + socket.getPort() + " (TCP)]";
+  }
+
+  /*
+   * Metodo: formatarDestinoServidorUDP
+   * Funcao: Formata a identificacao do servidor destino (IP e Porta UDP) para o log
+   */
+  private String formatarDestinoServidorUDP(InetAddress ipDestino, int portaUDP) {
+    String ip = ipDestino != null ? ipDestino.getHostAddress() : "desconhecido";
+    return "Servidor [" + ip + ":" + portaUDP + " (UDP)]";
+  }
+
+  /*
    * Metodo: descobrirIpLocal
    * Funcao: Detecta o IP local do cliente para enviar ao servidor
    * Parametros: nenhum
-  * Retorno: endereco IP local ou um endereco de fallback
+   * Retorno: endereco IP local ou um endereco de fallback
    */
   private InetAddress descobrirIpLocal() {
     try {
@@ -223,11 +145,132 @@ public class Cliente extends Thread {
   }
 
   /*
-  * Metodo: iniciarEscutaUDP
+   * Metodo: reconectarServidor
+   * Funcao: Caso o servidor de contato caia fisicamente, dispara broadcast na porta 8888
+   * para localizar outro Lider ativo, atualiza o ipServidor e resincroniza o estado do cliente
+   */
+  private synchronized boolean reconectarServidor() {
+    System.out.println("CLIENTE - [FAILOVER] Servidor de contato indisponivel. Buscando novo servidor via Broadcast (8888)...");
+    String novoIp = Descobridor.descobrirServidor();
+    if (novoIp != null) {
+      try {
+        this.ipServidor = InetAddress.getByName(novoIp);
+        this.PORTA_SERVIDOR_TCP = Descobridor.getUltimaPortaTCPDescoberta();
+        this.PORTA_SERVIDOR_UDP = Descobridor.getUltimaPortaUDPDescoberta();
+        System.out.println("CLIENTE - [FAILOVER] Novo servidor de contato definido: "
+            + this.ipServidor.getHostAddress() + ":" + PORTA_SERVIDOR_TCP);
+        resincronizarComServidor();
+        return true;
+      } catch (Exception e) {
+        System.out.println("CLIENTE - [FAILOVER-ERRO] Endereco IP invalido: " + e.getMessage());
+      }
+    }
+    return false;
+  }
+
+  /*
+   * Metodo: enviarApduDiretoTCP
+   * Funcao: Envia uma APDU diretamente ao ipServidor atual sem disparar failover recursivo
+   */
+  private void enviarApduDiretoTCP(APDU apdu, int timeout) throws Exception {
+    if (this.ipServidor == null) {
+      return;
+    }
+    try (Socket socketCliente = new Socket()) {
+      socketCliente.connect(new InetSocketAddress(this.ipServidor, PORTA_SERVIDOR_TCP), timeout);
+      socketCliente.setSoTimeout(timeout);
+      ObjectOutputStream saida = new ObjectOutputStream(socketCliente.getOutputStream());
+      saida.flush();
+      ObjectInputStream entrada = new ObjectInputStream(socketCliente.getInputStream());
+      saida.writeObject(apdu);
+      saida.flush();
+      entrada.readObject();
+    }
+  }
+
+  /*
+   * Metodo: resincronizarComServidor
+   * Funcao: Garante que o novo Lider assumido conheca o registro (IP/porta UDP) do cliente
+   * e todos os grupos ativos nos quais o cliente estava participando antes da queda
+   */
+  private void resincronizarComServidor() {
+    try {
+      APDU apduRegister = new APDU("REGISTER", null, this.nomeCliente, null, this.portaClienteUDP);
+      enviarApduDiretoTCP(apduRegister, 2000);
+
+      ArrayList<String> gruposAtivos = clienteController.obterGruposAtivos();
+      for (String grupo : gruposAtivos) {
+        if (grupo != null && !grupo.trim().isEmpty()) {
+          APDU apduJoin = new APDU("JOIN", grupo.trim(), this.nomeCliente, null, this.portaClienteUDP);
+          enviarApduDiretoTCP(apduJoin, 2000);
+        }
+      }
+    } catch (Exception ignored) {
+    }
+  }
+
+  /*
+   * Metodo: servidorAtualAcessivelTCP
+   * Funcao: Verifica rapidamente se o servidor de contato atual ainda responde conexoes TCP
+   */
+  private boolean servidorAtualAcessivelTCP() {
+    if (this.ipServidor == null) {
+      return false;
+    }
+    try (Socket s = new Socket()) {
+      s.connect(new InetSocketAddress(this.ipServidor, PORTA_SERVIDOR_TCP), 400);
+      return true;
+    } catch (Exception e) {
+      return false;
+    }
+  }
+
+  /*
+   * Metodo: enviarRequisicaoTCP
+   * Funcao: Envia uma APDU via TCP para o unico servidor de contato do cliente.
+   * Se houver queda/falha fisica na conexao (IOException / SocketTimeoutException),
+   * executa a redescoberta via Broadcast (8888) e repete a operacao.
+   */
+  private String enviarRequisicaoTCP(APDU apdu, int timeout, String detalheLog) throws IOException, ClassNotFoundException {
+    for (int tentativa = 1; tentativa <= 2; tentativa++) {
+      try (Socket socketCliente = new Socket()) {
+        if (this.ipServidor == null && !reconectarServidor()) {
+          throw new IOException("Nenhum servidor disponivel na rede.");
+        }
+
+        socketCliente.connect(new InetSocketAddress(this.ipServidor, PORTA_SERVIDOR_TCP), timeout);
+        socketCliente.setSoTimeout(timeout);
+
+        ObjectOutputStream saida = new ObjectOutputStream(socketCliente.getOutputStream());
+        saida.flush();
+        ObjectInputStream entrada = new ObjectInputStream(socketCliente.getInputStream());
+
+        String infoExtra = (detalheLog != null && !detalheLog.isEmpty()) ? " (" + detalheLog + ")" : "";
+        System.out.println("CLIENTE - [ENVIO APDU] Enviando [" + apdu.getOperacao() + "]" + infoExtra
+            + " para -> " + formatarDestinoServidorTCP(socketCliente));
+
+        saida.writeObject(apdu);
+        saida.flush();
+
+        Object respostaRecebida = entrada.readObject();
+        return (respostaRecebida instanceof String) ? ((String) respostaRecebida).trim() : null;
+      } catch (IOException e) {
+        if (tentativa == 1 && reconectarServidor()) {
+          System.out.println("CLIENTE - [FAILOVER] Repetindo operacao [" + apdu.getOperacao() + "] no novo servidor...");
+          continue;
+        }
+        throw e;
+      }
+    }
+    return null;
+  }
+
+  /*
+   * Metodo: iniciarEscutaUDP
    * Funcao: Inicia a Thread que escuta mensagens UDP (objetos APDU) recebidas do
    * servidor
    * Parametros: nenhum
-  * Retorno: void
+   * Retorno: void
    */
   public synchronized void iniciarEscutaUDP() {
     if (escutaUDPAtiva || endpointCliente == null || endpointCliente.isClosed()) {
@@ -242,19 +285,7 @@ public class Cliente extends Thread {
           DatagramPacket pacoteRecebido = new DatagramPacket(dadosEntrada, dadosEntrada.length);
           endpointCliente.receive(pacoteRecebido);
 
-          // Atualiza dinamicamente o IP do lider do conjunto correspondente se o pacote veio de outro IP
           InetAddress ipRemetente = pacoteRecebido.getAddress();
-          int portaRemetente = pacoteRecebido.getPort();
-          if (ipRemetente != null) {
-            int conjRem = (portaRemetente - PORTA_SERVIDOR_UDP_BASE) + 1;
-            if (conjRem >= 1 && conjRem <= 3) {
-              ipsConjunto[conjRem] = ipRemetente;
-            }
-            if (this.ipServidor == null || !ipRemetente.equals(this.ipServidor)) {
-              System.out.println("CLIENTE - Detectada comunicacao do Lider em: " + ipRemetente.getHostAddress());
-              this.ipServidor = ipRemetente;
-            }
-          }
 
           try {
             // Extrai o objeto APDU serializado usando somente os bytes recebidos.
@@ -262,6 +293,39 @@ public class Cliente extends Thread {
                 pacoteRecebido.getLength());
             ObjectInputStream in = new ObjectInputStream(bais);
             APDU apduRecebida = (APDU) in.readObject();
+
+            // Pacote leve de presenca enviado por um Standby recem-promovido a Lider
+            if ("CONFIRM".equals(apduRecebida.getOperacao())
+                && "0".equals(apduRecebida.getIdMensagem())
+                && apduRecebida.getStatusRecebido() == 0
+                && "SERVIDOR".equals(apduRecebida.getNomeUsuario())) {
+              if (ipRemetente != null) {
+                int portaTCPNotificada = this.PORTA_SERVIDOR_TCP;
+                int portaUDPNotificada = this.PORTA_SERVIDOR_UDP;
+                String infoPortas = apduRecebida.getNomeGrupo();
+                if (infoPortas != null && infoPortas.contains(":")) {
+                  try {
+                    String[] partes = infoPortas.split(":");
+                    portaTCPNotificada = Integer.parseInt(partes[0].trim());
+                    portaUDPNotificada = Integer.parseInt(partes[1].trim());
+                  } catch (NumberFormatException ignored) {
+                  }
+                }
+                final int novaPortaTCP = portaTCPNotificada;
+                final int novaPortaUDP = portaUDPNotificada;
+                new Thread(() -> {
+                  if (novaPortaTCP == this.PORTA_SERVIDOR_TCP || !servidorAtualAcessivelTCP()) {
+                    this.ipServidor = ipRemetente;
+                    this.PORTA_SERVIDOR_TCP = novaPortaTCP;
+                    this.PORTA_SERVIDOR_UDP = novaPortaUDP;
+                    System.out.println("CLIENTE - [NOVA LIDERANCA] Ponto de contato atualizado para o novo Lider em: "
+                        + ipRemetente.getHostAddress() + ":" + this.PORTA_SERVIDOR_TCP);
+                  }
+                  resincronizarComServidor();
+                }).start();
+              }
+              continue;
+            }
 
             System.out.println("CLIENTE - Recebeu APDU: " + apduRecebida.getOperacao());
 
@@ -299,27 +363,34 @@ public class Cliente extends Thread {
     switch (operacao) {
       case "SEND":
         enviarConfirmacao(apdu.getIdMensagem(), 2, apdu.getNomeGrupo(), apdu.getNomeUsuario());
-        Controller.clienteController.receberMensagem(apdu.getTextoMensagem(), apdu.getNomeGrupo(), apdu.getNomeUsuario(), GRUPO, false, apdu.getIdMensagem());  
+        Controller.clienteController.receberMensagem(apdu.getTextoMensagem(), apdu.getNomeGrupo(),
+            apdu.getNomeUsuario(), GRUPO, false, apdu.getIdMensagem());
         break;
 
       case "SENDPVT":
         enviarConfirmacao(apdu.getIdMensagem(), 2, null, apdu.getNomeUsuario());
-        Controller.clienteController.receberMensagem(apdu.getTextoMensagem(), apdu.getNomeUsuario(), apdu.getNomeUsuario(), PRIVADO,
-            apdu.isVisualizacaoUnica(), apdu.getIdMensagem());
+        Controller.clienteController.receberMensagem(apdu.getTextoMensagem(), apdu.getNomeUsuario(),
+            apdu.getNomeUsuario(), PRIVADO, apdu.isVisualizacaoUnica(), apdu.getIdMensagem());
         break;
 
       case "SENDVU":
         if (apdu.getDestinatario() != null) {
           enviarConfirmacao(apdu.getIdMensagem(), 2, null, apdu.getNomeUsuario());
-          Controller.clienteController.receberMensagem(apdu.getTextoMensagem(), apdu.getNomeUsuario(), apdu.getNomeUsuario(), PRIVADO, true, apdu.getIdMensagem());
+          Controller.clienteController.receberMensagem(apdu.getTextoMensagem(), apdu.getNomeUsuario(),
+              apdu.getNomeUsuario(), PRIVADO, true, apdu.getIdMensagem());
         } else {
           enviarConfirmacao(apdu.getIdMensagem(), 2, apdu.getNomeGrupo(), apdu.getNomeUsuario());
-          Controller.clienteController.receberMensagem(apdu.getTextoMensagem(), apdu.getNomeGrupo(), apdu.getNomeUsuario(), GRUPO, true, apdu.getIdMensagem());
+          Controller.clienteController.receberMensagem(apdu.getTextoMensagem(), apdu.getNomeGrupo(),
+              apdu.getNomeUsuario(), GRUPO, true, apdu.getIdMensagem());
         } // fim do if
         break;
-        
+
       case "CONFIRM":
-        System.out.println("CLIENTE - Recebeu confirmacao (Tick): MsgID " + apdu.getIdMensagem() + " Status " + apdu.getStatusRecebido());
+        if (apdu.getIdMensagem() != null) {
+          mensagensAguardandoTick1.remove(apdu.getIdMensagem());
+        }
+        System.out.println("CLIENTE - Recebeu confirmacao (Tick): MsgID " + apdu.getIdMensagem() + " Status "
+            + apdu.getStatusRecebido());
         Controller.clienteController.atualizarStatusMensagem(apdu.getIdMensagem(), apdu.getStatusRecebido());
         break;
     } // fim do switch-case
@@ -327,8 +398,7 @@ public class Cliente extends Thread {
 
   /*
    * Metodo: entrarGrupo
-   * Funcao: Conecta via TCP ao Lider do conjunto correspondente a letra inicial do grupo,
-   * envia o objeto APDU de JOIN e aguarda a confirmacao do servidor
+   * Funcao: Envia o objeto APDU de JOIN para o servidor conectado e aguarda a confirmacao
    * Parametros: grupo = nome do grupo que o usuario deseja entrar
    * Retorno: boolean indicando se a entrada foi aprovada
    */
@@ -339,221 +409,51 @@ public class Cliente extends Thread {
       return false;
     } // fim do if
 
-    int conjunto = calcularConjuntoPorNome(grupoNormalizado);
-    int portaTCP = calcularPortaTCPPorConjunto(conjunto);
-
     try {
-      try (Socket socketCliente = abrirSocketTCP(portaTCP, TIMEOUT_TCP)) {
-
-      ObjectOutputStream saida = new ObjectOutputStream(socketCliente.getOutputStream());
-      saida.flush();
-      ObjectInputStream entrada = new ObjectInputStream(socketCliente.getInputStream());
-
       APDU apdu = new APDU("JOIN", grupoNormalizado, this.nomeCliente.trim(), null, this.portaClienteUDP);
-
-      System.out.println("CLIENTE - [ROTEAMENTO] Enviando APDU JOIN ('" + grupoNormalizado
-          + "') -> Conjunto " + conjunto + " " + obterFaixaConjunto(conjunto) + " (TCP " + portaTCP + ")...");
-      saida.writeObject(apdu);
-      saida.flush();
-
-      Object respostaRecebida = entrada.readObject();
-      socketCliente.close();
-
-      if (!(respostaRecebida instanceof String)) {
-        return false;
-      } // fim do if
-
-      String resposta = ((String) respostaRecebida).trim();
-      return resposta.startsWith("OK:");
-      }
-
-    } catch (java.net.SocketTimeoutException e) {
-      System.out.println("CLIENTE - ERRO: Tempo limite excedido. O Lider do Conjunto "
-          + conjunto + " (TCP " + portaTCP + ") nao respondeu ao JOIN.");
+      String resposta = enviarRequisicaoTCP(apdu, TIMEOUT_TCP, "grupo='" + grupoNormalizado + "'");
+      return resposta != null && resposta.startsWith("OK:");
+    } catch (SocketTimeoutException e) {
+      System.out.println("CLIENTE - ERRO: Tempo limite excedido ao tentar entrar no grupo '" + grupoNormalizado + "'.");
       return false;
     } catch (Exception e) {
-      System.out.println("CLIENTE - ERRO: Falha no JOIN (Conjunto " + conjunto + " / TCP " + portaTCP + "): " + e.getMessage());
+      System.out.println("CLIENTE - ERRO: Falha no JOIN do grupo '" + grupoNormalizado + "': " + e.getMessage());
       return false;
     } // fim do try-catch
   } // fim do metodo entrarGrupo
 
   /*
    * Metodo: sairGrupo
-   * Funcao: Conecta via TCP ao Lider do conjunto correspondente a letra inicial do grupo,
-   * envia o objeto APDU de LEAVE e aguarda a confirmacao do servidor
+   * Funcao: Envia o objeto APDU de LEAVE para o servidor conectado e aguarda a confirmacao
    * Parametros: grupo = nome do grupo que o usuario deseja sair
    * Retorno: boolean indicando se a saida foi concluida
    */
   public boolean sairGrupo(String grupo) {
-    int conjunto = calcularConjuntoPorNome(grupo);
-    int portaTCP = calcularPortaTCPPorConjunto(conjunto);
-
     try {
-      try (Socket socketCliente = abrirSocketTCP(portaTCP, TIMEOUT_TCP)) {
-
-      ObjectOutputStream saida = new ObjectOutputStream(socketCliente.getOutputStream());
-      saida.flush();
-      ObjectInputStream entrada = new ObjectInputStream(socketCliente.getInputStream());
-
-      // Instancia a APDU do colega para o LEAVE
       APDU apdu = new APDU("LEAVE", grupo, this.nomeCliente, null, this.portaClienteUDP);
-
-      System.out.println("CLIENTE - [ROTEAMENTO] Enviando APDU LEAVE ('" + grupo
-          + "') -> Conjunto " + conjunto + " " + obterFaixaConjunto(conjunto) + " (TCP " + portaTCP + ")...");
-      saida.writeObject(apdu);
-      saida.flush();
-
-      String resposta = (String) entrada.readObject();
-      socketCliente.close();
-
-      // O novo servidor responde "OK: Saiu do grupo com sucesso"
+      String resposta = enviarRequisicaoTCP(apdu, TIMEOUT_TCP, "grupo='" + grupo + "'");
       return resposta != null && resposta.startsWith("OK:");
-      }
-
-    } catch (java.net.SocketTimeoutException e) {
-      System.out.println("CLIENTE - ERRO: Tempo limite excedido. O Lider do Conjunto "
-          + conjunto + " (TCP " + portaTCP + ") nao respondeu ao LEAVE.");
+    } catch (SocketTimeoutException e) {
+      System.out.println("CLIENTE - ERRO: Tempo limite excedido ao tentar sair do grupo '" + grupo + "'.");
       return false;
     } catch (Exception e) {
-      System.out.println("CLIENTE - ERRO: Falha no LEAVE (Conjunto " + conjunto + " / TCP " + portaTCP + "): " + e.getMessage());
+      System.out.println("CLIENTE - ERRO: Falha no LEAVE do grupo '" + grupo + "': " + e.getMessage());
       return false;
     } // fim do try-catch
   } // fim do metodo sairGrupo
 
   /*
-   * Metodo: abrirSocketTCP (padrao baseado no nomeCliente)
-   * Funcao: Abre uma conexao TCP para o conjunto correspondente ao proprio cliente
-   */
-  private Socket abrirSocketTCP(int timeout) throws java.io.IOException {
-    return abrirSocketTCP(calcularPortaTCPPorNome(this.nomeCliente), timeout);
-  }
-
-  /*
-   * Metodo: abrirSocketTCP
-   * Funcao: Abre uma conexao TCP na porta especificada do conjunto alvo com timeout de conexao e leitura.
-   * Suporta tanto 3 servidores na mesma maquina (localhost/LAN) quanto em IPs separados.
-   * Parametros: portaTCP = porta TCP do lider do conjunto (6789, 6790 ou 6791), timeout = limite em ms
-   * Retorno: socket TCP conectado
-   */
-  private Socket abrirSocketTCP(int portaTCP, int timeout) throws java.io.IOException {
-    int conjunto = (portaTCP - PORTA_SERVIDOR_TCP_BASE) + 1;
-    InetAddress ipAlvo = (conjunto >= 1 && conjunto <= 3 && ipsConjunto[conjunto] != null)
-        ? ipsConjunto[conjunto]
-        : ipServidor;
-
-    // 1. Tenta conectar no IP ja conhecido para este conjunto (ou ipServidor padrao)
-    if (ipAlvo != null) {
-      try {
-        Socket socket = new Socket();
-        socket.connect(new InetSocketAddress(ipAlvo, portaTCP), Math.min(timeout, 1500));
-        socket.setSoTimeout(timeout);
-        if (conjunto >= 1 && conjunto <= 3) {
-          ipsConjunto[conjunto] = ipAlvo;
-        }
-        return socket;
-      } catch (java.io.IOException ignored) {
-      }
-    }
-
-    // 2. Tentativa rapida em localhost (127.0.0.1) na porta do conjunto
-    try {
-      InetAddress localAddr = InetAddress.getByName("127.0.0.1");
-      Socket socket = new Socket();
-      socket.connect(new InetSocketAddress(localAddr, portaTCP), 400);
-      socket.setSoTimeout(timeout);
-      if (conjunto >= 1 && conjunto <= 3) {
-        ipsConjunto[conjunto] = localAddr;
-      }
-      this.ipServidor = localAddr;
-      return socket;
-    } catch (java.io.IOException ignored) {
-    }
-
-    // 3. Descobre na rede qual IP possui especificamente esta portaTCP (6789, 6790 ou 6791) aberta
-    System.out.println("CLIENTE - Procurando Lider ativo para a porta TCP " + portaTCP + " no cluster...");
-    String novoIp = Network.Descobridor.descobrirServidor(portaTCP);
-    if (novoIp != null) {
-      try {
-        InetAddress addrDescoberto = InetAddress.getByName(novoIp);
-        System.out.println("CLIENTE - Lider localizado em: " + novoIp + ":" + portaTCP + ". Conectando...");
-        Socket socket = new Socket();
-        socket.connect(new InetSocketAddress(addrDescoberto, portaTCP), timeout);
-        socket.setSoTimeout(timeout);
-        if (conjunto >= 1 && conjunto <= 3) {
-          ipsConjunto[conjunto] = addrDescoberto;
-        }
-        this.ipServidor = addrDescoberto;
-        return socket;
-      } catch (Exception ex) {
-        throw new java.io.IOException("Falha ao conectar ao lider (" + novoIp + ":" + portaTCP + "): " + ex.getMessage(), ex);
-      }
-    }
-    throw new java.io.IOException("Nenhum Lider respondeu na porta TCP " + portaTCP);
-  }
-
-  /*
-   * Metodo: abrirSocketTCPGlobal
-   * Funcao: Para operacoes GLOBAIS de utilizador (REGISTER, LOGOUT, USERS, BLOCK, UNBLOCK),
-   * tenta primeiro o Lider do conjunto correspondente a 1a letra do nome. Se esse conjunto
-   * nao tiver nenhum servidor ativo no momento, faz fallback automatico para outro Lider ativo
-   * (ja que usuariosOnline e replicado globalmente entre os conjuntos).
-   */
-  private Socket abrirSocketTCPGlobal(int portaTCPPreferencial, int timeout) throws java.io.IOException {
-    try {
-      return abrirSocketTCP(portaTCPPreferencial, timeout);
-    } catch (java.io.IOException erroPrincipal) {
-      for (int c = 1; c <= 3; c++) {
-        int portaAlternativa = calcularPortaTCPPorConjunto(c);
-        if (portaAlternativa == portaTCPPreferencial) {
-          continue;
-        }
-        try {
-          Socket s = abrirSocketTCP(portaAlternativa, 1200);
-          System.out.println("CLIENTE - [FALLBACK GLOBAL] Conjunto preferencial (TCP " + portaTCPPreferencial
-              + ") indisponivel; utilizando Lider ativo do Conjunto " + c + " (TCP " + portaAlternativa + ").");
-          return s;
-        } catch (java.io.IOException ignored) {
-        }
-      }
-      throw erroPrincipal;
-    }
-  }
-
-  /*
-   * Metodo: obterIpParaConjunto
-   * Funcao: Retorna o InetAddress do Lider do conjunto informado (descobrindo-o se necessario)
-   */
-  private InetAddress obterIpParaConjunto(int conjunto) {
-    if (conjunto >= 1 && conjunto <= 3 && ipsConjunto[conjunto] != null) {
-      return ipsConjunto[conjunto];
-    }
-    int portaTCP = calcularPortaTCPPorConjunto(conjunto);
-    String ipDesc = Network.Descobridor.descobrirServidor(portaTCP);
-    if (ipDesc != null) {
-      try {
-        InetAddress addr = InetAddress.getByName(ipDesc);
-        if (conjunto >= 1 && conjunto <= 3) {
-          ipsConjunto[conjunto] = addr;
-        }
-        return addr;
-      } catch (Exception ignored) {
-      }
-    }
-    return ipServidor;
-  }
-
-  /*
    * Metodo: enviarObjetoUDP
-   * Funcao: Serializa e envia uma APDU para o lider do conjunto correspondente via UDP
+   * Funcao: Serializa e envia uma APDU diretamente para o servidor conectado via UDP
    * Parametros: apdu = objeto a ser enviado
    * Retorno: void
    */
   private void enviarObjetoUDP(APDU apdu) {
     try {
-      String chaveRoteamento = obterChaveRoteamentoAPDU(apdu);
-      int conjunto = calcularConjuntoPorNome(chaveRoteamento);
-      int portaUDP = calcularPortaUDPPorConjunto(conjunto);
-      InetAddress ipDestino = obterIpParaConjunto(conjunto);
+      if (this.ipServidor == null && !reconectarServidor()) {
+        System.out.println("CLIENTE - ERRO: Sem servidor de contato para envio UDP.");
+        return;
+      }
 
       ByteArrayOutputStream baos = new ByteArrayOutputStream();
       ObjectOutputStream out = new ObjectOutputStream(baos);
@@ -561,15 +461,41 @@ public class Cliente extends Thread {
       out.flush();
       byte[] dados = baos.toByteArray();
 
-      DatagramPacket pacote = new DatagramPacket(dados, dados.length, ipDestino, portaUDP);
+      DatagramPacket pacote = new DatagramPacket(dados, dados.length, this.ipServidor, PORTA_SERVIDOR_UDP);
       endpointCliente.send(pacote);
-      System.out.println("CLIENTE - [ROTEAMENTO UDP] APDU [" + apdu.getOperacao() + "] chave='"
-          + chaveRoteamento + "' -> Conjunto " + conjunto + " " + obterFaixaConjunto(conjunto)
-          + " (" + (ipDestino != null ? ipDestino.getHostAddress() : "null") + ":" + portaUDP + ")");
+      System.out.println("CLIENTE - [ENVIO APDU] Enviando [" + apdu.getOperacao() + "] para -> "
+          + formatarDestinoServidorUDP(this.ipServidor, PORTA_SERVIDOR_UDP));
     } catch (Exception e) {
-      System.out.println("CLIENTE - ERRO ao encaminhar objeto via UDP.");
+      System.out.println("CLIENTE - ERRO ao encaminhar objeto via UDP: " + e.getMessage());
     } // fim do try-catch
   } // fim do metodo enviarObjetoUDP
+
+  /*
+   * Metodo: iniciarWatchdogTick1
+   * Funcao: Monitora se a mensagem UDP enviada recebeu o TICK 1 do servidor.
+   * Caso o servidor tenha caido (ou esteja em transicao de failover) e nao responda dentro
+   * do tempo limite, aciona reconectarServidor() e reenvia a APDU automaticamente.
+   */
+  private void iniciarWatchdogTick1(APDU apdu) {
+    final String idMsg = apdu.getIdMensagem();
+    if (idMsg == null) {
+      return;
+    }
+    mensagensAguardandoTick1.add(idMsg);
+    new Thread(() -> {
+      try {
+        Thread.sleep(TIMEOUT_TICK1_UDP_MS);
+        if (mensagensAguardandoTick1.remove(idMsg) && !logoutRealizado) {
+          System.out.println("CLIENTE - [FAILOVER-UDP] Sem confirmacao (TICK 1) para MsgID " + idMsg
+              + ". Reconectando ao servidor e reenviando mensagem...");
+          if (reconectarServidor()) {
+            enviarObjetoUDP(apdu);
+          }
+        }
+      } catch (InterruptedException ignored) {
+      }
+    }, "Watchdog-Tick1-" + idMsg).start();
+  }
 
   /*
    * Metodo: enviarMensagem
@@ -579,10 +505,10 @@ public class Cliente extends Thread {
    */
   public String enviarMensagem(String grupo, String mensagem, boolean isVisuUnica) {
     try {
-      String operacao = isVisuUnica ? "SENDVU" : "SEND"; 
+      String operacao = isVisuUnica ? "SENDVU" : "SEND";
       APDU apdu = new APDU(operacao, grupo, this.nomeCliente, mensagem, this.portaClienteUDP);
+      iniciarWatchdogTick1(apdu);
       enviarObjetoUDP(apdu);
-      System.out.println("CLIENTE - Enviando APDU " + operacao + " para o servidor");
       return apdu.getIdMensagem();
     } catch (Exception e) {
       System.out.println("CLIENTE - ERRO: Nao foi possivel enviar a mensagem!");
@@ -594,14 +520,14 @@ public class Cliente extends Thread {
    * Metodo: enviarMensagemPrivado
    * Funcao: Envia uma mensagem privada utilizando o objeto APDU
    * Parametros: usuarioDestino = usuario que vai receber, mensagem = texto
-    * Retorno: String com o ID da mensagem ou null em caso de erro
+   * Retorno: String com o ID da mensagem ou null em caso de erro
    */
   public String enviarMensagemPrivado(String usuarioDestino, String mensagem, boolean isVisuUnica) {
     try {
       APDU apdu = new APDU("SENDPVT", null, this.nomeCliente, mensagem, this.portaClienteUDP, usuarioDestino);
       apdu.setVisualizacaoUnica(isVisuUnica);
+      iniciarWatchdogTick1(apdu);
       enviarObjetoUDP(apdu);
-      System.out.println("CLIENTE - Enviando APDU SENDPVT para o servidor");
       return apdu.getIdMensagem();
     } catch (Exception e) {
       System.out.println("CLIENTE - ERRO: Nao foi possivel enviar a mensagem privada!");
@@ -611,189 +537,117 @@ public class Cliente extends Thread {
 
   /*
    * Metodo: fazerLogin
-   * Funcao: Conecta via TCP ao Lider do conjunto correspondente a 1a letra de nomeCliente
-   * e envia a APDU REGISTER
+   * Funcao: Conecta via TCP ao servidor de contato e envia a APDU REGISTER
    * Parametros: nenhum
    * Retorno: boolean (true se o login for aprovado, false caso contrario)
    */
   public boolean fazerLogin() {
-    int conjunto = calcularConjuntoPorNome(this.nomeCliente);
-    int portaTCP = calcularPortaTCPPorConjunto(conjunto);
-
     try {
-      try (Socket socketCliente = abrirSocketTCPGlobal(portaTCP, TIMEOUT_TCP)) {
-      ObjectOutputStream saida = new ObjectOutputStream(socketCliente.getOutputStream());
-      saida.flush();
-      ObjectInputStream entrada = new ObjectInputStream(socketCliente.getInputStream());
-
       APDU apduLogin = new APDU("REGISTER", null, this.nomeCliente, null, this.portaClienteUDP);
-
-      System.out.println("CLIENTE - [ROTEAMENTO] Enviando APDU REGISTER ('" + this.nomeCliente
-          + "') -> Conjunto " + conjunto + " " + obterFaixaConjunto(conjunto) + " (TCP " + socketCliente.getPort() + ")...");
-      saida.writeObject(apduLogin);
-      saida.flush();
-
-      String resposta = (String) entrada.readObject();
-      socketCliente.close();
-
+      String resposta = enviarRequisicaoTCP(apduLogin, TIMEOUT_TCP, "usuario='" + this.nomeCliente + "'");
       return resposta != null && resposta.startsWith("OK: registrado");
-      }
-
     } catch (Exception e) {
-      System.out.println("CLIENTE - ERRO: Falha no LOGIN (Conjunto " + conjunto + " / TCP " + portaTCP + "): " + e.getMessage());
+      System.out.println("CLIENTE - ERRO: Falha no LOGIN: " + e.getMessage());
       return false;
     }
   } // fim do metodo fazerLogin
 
   /*
    * Metodo: fazerLogout
-   * Funcao: Conecta via TCP ao Lider do conjunto correspondente a 1a letra de nomeCliente
-   * e faz logout do usuario no servidor usando a APDU oficial
+   * Funcao: Envia a APDU LOGOUT para o servidor conectado (que propaga a remocao para todo o cluster)
    * Parametros: nenhum
    * Retorno: void
    */
-  public void fazerLogout() {
-    int conjunto = calcularConjuntoPorNome(this.nomeCliente);
-    int portaTCP = calcularPortaTCPPorConjunto(conjunto);
+  public synchronized void fazerLogout() {
+    if (logoutRealizado) {
+      return;
+    }
+    logoutRealizado = true;
 
     try {
-      try (Socket socketCliente = abrirSocketTCPGlobal(portaTCP, TIMEOUT_LOGOUT)) {
-      socketCliente.setSoTimeout(TIMEOUT_LOGOUT);
-      ObjectOutputStream saida = new ObjectOutputStream(socketCliente.getOutputStream());
-      saida.flush();
-      ObjectInputStream entrada = new ObjectInputStream(socketCliente.getInputStream());
-
       APDU apduLogout = new APDU("LOGOUT", null, this.nomeCliente, null, this.portaClienteUDP);
-      System.out.println("CLIENTE - [ROTEAMENTO] Enviando APDU LOGOUT ('" + this.nomeCliente
-          + "') -> Conjunto " + conjunto + " " + obterFaixaConjunto(conjunto) + " (TCP " + socketCliente.getPort() + ")...");
-      saida.writeObject(apduLogout);
-      saida.flush();
-
-      entrada.readObject(); 
-      }
-    } catch (Exception e) {
-      System.out.println("CLIENTE - O servidor do Conjunto " + conjunto + " (TCP " + portaTCP
-          + ") estava inacessivel no logout: " + e.getMessage());
-    } // fim do try-catch
+      enviarRequisicaoTCP(apduLogout, TIMEOUT_LOGOUT, "usuario='" + this.nomeCliente + "'");
+    } catch (Exception ignored) {
+    }
   } // fim do metodo fazerLogout
 
   /*
    * Metodo: solicitarListaGrupos
-   * Funcao: Consulta os 3 Lideres ativos (Conjuntos 1, 2 e 3 nas portas 6789, 6790 e 6791)
-   * com a APDU LIST, junta as respostas no cliente e envia para a interface
+   * Funcao: Envia um unico comando LIST para o servidor conectado (que consolida as 3 particoes internamente)
    * Parametros: nenhum
    * Retorno: void
    */
   public void solicitarListaGrupos() {
-    ArrayList<String> todosGrupos = new ArrayList<>();
-    boolean algumConjuntoRespondeu = false;
-
-    for (int conjunto = 1; conjunto <= 3; conjunto++) {
-      int portaTCP = calcularPortaTCPPorConjunto(conjunto);
-      try (Socket socketCliente = abrirSocketTCP(portaTCP, TIMEOUT_LIST_CONJUNTO)) {
-        socketCliente.setSoTimeout(TIMEOUT_LIST_CONJUNTO);
-
-        ObjectOutputStream saida = new ObjectOutputStream(socketCliente.getOutputStream());
-        saida.flush();
-        ObjectInputStream entrada = new ObjectInputStream(socketCliente.getInputStream());
-
-        APDU apdu = new APDU("LIST", null, this.nomeCliente, null, this.portaClienteUDP);
-        System.out.println("CLIENTE - [ROTEAMENTO LIST] Consultando Lider do Conjunto "
-            + conjunto + " " + obterFaixaConjunto(conjunto) + " (TCP " + portaTCP + ")...");
-        saida.writeObject(apdu);
-        saida.flush();
-
-        String resposta = (String) entrada.readObject();
-        if (resposta != null && resposta.startsWith("OK: ")) {
-          algumConjuntoRespondeu = true;
-          ArrayList<String> gruposConjunto = extrairListaDaResposta(resposta);
-          for (String g : gruposConjunto) {
-            if (!todosGrupos.contains(g)) {
-              todosGrupos.add(g);
-            }
-          }
-        }
-      } catch (Exception e) {
-        System.out.println("CLIENTE - AVISO: Lider do Conjunto " + conjunto + " "
-            + obterFaixaConjunto(conjunto) + " (TCP " + portaTCP + ") inativo ou sem resposta ao LIST.");
+    try {
+      APDU apdu = new APDU("LIST", null, this.nomeCliente, null, this.portaClienteUDP);
+      String resposta = enviarRequisicaoTCP(apdu, TIMEOUT_TCP, null);
+      if (resposta != null && resposta.startsWith("OK:")) {
+        ArrayList<String> grupos = extrairListaDaResposta(resposta);
+        clienteController.exibirListaConversas(grupos, GRUPO);
+      } else {
+        clienteController.exibirListaConversas(new ArrayList<>(), GRUPO);
       }
-    }
-
-    if (algumConjuntoRespondeu) {
-      clienteController.exibirListaConversas(todosGrupos, GRUPO);
-    } else {
-      System.out.println("CLIENTE - ERRO: Nenhum dos 3 lideres respondeu a solicitacao LIST!");
-      clienteController.exibirListaConversas(todosGrupos, GRUPO);
+    } catch (Exception e) {
+      System.out.println("CLIENTE - ERRO: Nao foi possivel solicitar a lista de grupos: " + e.getMessage());
+      clienteController.exibirListaConversas(new ArrayList<>(), GRUPO);
     }
   } // fim do solicitarListaGrupos
 
   /*
    * Metodo: solicitarListaMembros
-   * Funcao: Conecta via TCP ao Lider do conjunto correspondente a 1a letra de nomeGrupo
-   * e envia a APDU MEMBERS para listar os integrantes do grupo
+   * Funcao: Envia a APDU MEMBERS ao servidor conectado para listar os integrantes do grupo
    * Parametros: grupo = nome do grupo
    * Retorno: void
    */
   public void solicitarListaMembros(String grupo) {
-    int conjunto = calcularConjuntoPorNome(grupo);
-    int portaTCP = calcularPortaTCPPorConjunto(conjunto);
-
-    try (Socket socketCliente = abrirSocketTCP(portaTCP, TIMEOUT_TCP)) {
-      ObjectOutputStream saida = new ObjectOutputStream(socketCliente.getOutputStream());
-      saida.flush();
-      ObjectInputStream entrada = new ObjectInputStream(socketCliente.getInputStream());
-
+    try {
       APDU apdu = new APDU("MEMBERS", grupo, this.nomeCliente, null, this.portaClienteUDP);
-      System.out.println("CLIENTE - [ROTEAMENTO] Enviando APDU MEMBERS ('" + grupo
-          + "') -> Conjunto " + conjunto + " " + obterFaixaConjunto(conjunto) + " (TCP " + portaTCP + ")...");
-      saida.writeObject(apdu);
-      saida.flush();
-
-      String resposta = (String) entrada.readObject();
-
-      if (resposta != null && resposta.startsWith("OK: ")) {
+      String resposta = enviarRequisicaoTCP(apdu, TIMEOUT_TCP, "grupo='" + grupo + "'");
+      if (resposta != null && resposta.startsWith("OK:")) {
         ArrayList<String> membros = extrairListaDaResposta(resposta);
         clienteController.exibirListaConversas(membros, PRIVADO);
       } // fim do if
     } catch (Exception e) {
-      System.out.println("CLIENTE - ERRO: Nao foi possivel solicitar membros do grupo '"
-          + grupo + "' no Conjunto " + conjunto + " (TCP " + portaTCP + ")!");
+      System.out.println("CLIENTE - ERRO: Nao foi possivel solicitar membros do grupo '" + grupo + "'!");
     } // fim do try-catch
   } // fim do solicitarListaMembros
 
   /*
    * Metodo: solicitarListaUsuarios
-   * Funcao: Conecta via TCP ao Lider do conjunto correspondente a 1a letra de nomeCliente
-   * e envia a APDU USERS para listar todos os usuarios conectados globalmente
+   * Funcao: Envia a APDU USERS ao servidor conectado para listar todos os usuarios online
    * Parametros: nenhum
    * Retorno: void
    */
   public void solicitarListaUsuarios() {
-    int conjunto = calcularConjuntoPorNome(this.nomeCliente);
-    int portaTCP = calcularPortaTCPPorConjunto(conjunto);
+    solicitarListaUsuariosPorModo(PRIVADO);
+  } // fim do metodo solicitarListaUsuarios
 
-    try (Socket socketCliente = abrirSocketTCPGlobal(portaTCP, TIMEOUT_TCP)) {
-      ObjectOutputStream saida = new ObjectOutputStream(socketCliente.getOutputStream());
-      saida.flush();
-      ObjectInputStream entrada = new ObjectInputStream(socketCliente.getInputStream());
+  /*
+   * Metodo: solicitarListaUsuariosBloqueio
+   * Funcao: Solicita a lista de usuarios online ao servidor para abrir na tela de Gerenciar Bloqueios
+   * Parametros: nenhum
+   * Retorno: void
+   */
+  public void solicitarListaUsuariosBloqueio() {
+    solicitarListaUsuariosPorModo(BLOQUEIO);
+  } // fim do metodo solicitarListaUsuariosBloqueio
 
+  /*
+   * Metodo: solicitarListaUsuariosPorModo
+   * Funcao: Consulta a APDU USERS no servidor conectado e encaminha para exibirListaConversas com o modo desejado
+   */
+  private void solicitarListaUsuariosPorModo(String modoExibicao) {
+    try {
       APDU apdu = new APDU("USERS", null, this.nomeCliente, null, this.portaClienteUDP);
-      System.out.println("CLIENTE - [ROTEAMENTO] Enviando APDU USERS ('" + this.nomeCliente
-          + "') -> Conjunto " + conjunto + " " + obterFaixaConjunto(conjunto) + " (TCP " + socketCliente.getPort() + ")...");
-      saida.writeObject(apdu);
-      saida.flush();
-
-      String resposta = (String) entrada.readObject();
-
-      if (resposta != null && resposta.startsWith("OK: ")) {
+      String resposta = enviarRequisicaoTCP(apdu, TIMEOUT_TCP, "solicitante='" + this.nomeCliente + "'");
+      if (resposta != null && resposta.startsWith("OK:")) {
         ArrayList<String> usuarios = extrairListaDaResposta(resposta);
-        clienteController.exibirListaConversas(usuarios, PRIVADO);
+        clienteController.exibirListaConversas(usuarios, modoExibicao);
       } // fim do if
     } catch (Exception e) {
-      System.out.println("CLIENTE - ERRO: Nao foi possivel solicitar usuarios online no Conjunto "
-          + conjunto + " (TCP " + portaTCP + ")!");
+      System.out.println("CLIENTE - ERRO: Nao foi possivel solicitar usuarios online!");
     } // fim do try-catch
-  } // fim do metodo solicitarListaUsuarios
+  } // fim do metodo solicitarListaUsuariosPorModo
 
   /*
    * Metodo: extrairListaDaResposta
@@ -804,9 +658,9 @@ public class Cliente extends Thread {
    */
   private ArrayList<String> extrairListaDaResposta(String resposta) {
     ArrayList<String> lista = new ArrayList<>();
-    String conteudo = resposta.substring(4);
+    String conteudo = resposta.length() > 3 ? resposta.substring(3).trim() : "";
 
-    if (!conteudo.trim().isEmpty()) {
+    if (!conteudo.isEmpty()) {
       String[] itens = conteudo.split(",");
       for (String item : itens) {
         if (!item.trim().isEmpty()) {
@@ -817,84 +671,44 @@ public class Cliente extends Thread {
 
     return lista;
   } // fim do metodo extrairListaDaResposta
-  
+
   /*
    * Metodo: verificarUsuario
-   * Funcao: Pergunta ao Lider do conjunto correspondente a 1a letra de nomeUsuarioDestino (ou nomeCliente)
-   * a lista de usuarios conectados para checar se o alvo existe
+   * Funcao: Pergunta ao servidor conectado a lista de usuarios online para checar se o alvo existe
    * Parametros: nomeUsuarioDestino = nome do usuario que desejamos verificar
    * Retorno: boolean indicando se o usuario esta online
    */
   public boolean verificarUsuario(String nomeUsuarioDestino) {
-    int conjunto = calcularConjuntoPorNome(nomeUsuarioDestino);
-    int portaTCP = calcularPortaTCPPorConjunto(conjunto);
-
-    try (Socket socketCliente = abrirSocketTCPGlobal(portaTCP, TIMEOUT_TCP)) {
-
-      ObjectOutputStream saida = new ObjectOutputStream(socketCliente.getOutputStream());
-      saida.flush();
-      ObjectInputStream entrada = new ObjectInputStream(socketCliente.getInputStream());
-
+    try {
       APDU apdu = new APDU("USERS", null, this.nomeCliente, null, this.portaClienteUDP);
-      System.out.println("CLIENTE - [ROTEAMENTO] Verificando usuario '" + nomeUsuarioDestino
-          + "' via USERS -> Conjunto " + conjunto + " " + obterFaixaConjunto(conjunto) + " (TCP " + socketCliente.getPort() + ")...");
-      saida.writeObject(apdu);
-      saida.flush();
-
-      String resposta = (String) entrada.readObject();
-
-      if (resposta != null && resposta.startsWith("OK: ")) {
+      String resposta = enviarRequisicaoTCP(apdu, TIMEOUT_TCP, "verificando='" + nomeUsuarioDestino + "'");
+      if (resposta != null && resposta.startsWith("OK:")) {
         ArrayList<String> usuarios = extrairListaDaResposta(resposta);
         return usuarios.contains(nomeUsuarioDestino.trim());
       } // fim do if
       return false;
-
-    } catch (java.net.SocketTimeoutException e) {
-      System.out.println("CLIENTE - ERRO: Tempo limite excedido ao verificar usuario no Conjunto "
-          + conjunto + " (TCP " + portaTCP + ").");
+    } catch (SocketTimeoutException e) {
+      System.out.println("CLIENTE - ERRO: Tempo limite excedido ao verificar usuario.");
       return false;
     } catch (Exception e) {
-      System.out.println("CLIENTE - ERRO: Falha ao verificar usuario no Conjunto " + conjunto + " (TCP " + portaTCP + ").");
-      e.printStackTrace();
+      System.out.println("CLIENTE - ERRO: Falha ao verificar usuario: " + e.getMessage());
       return false;
     } // fim do try-catch
   } // fim do metodo verificarUsuario
 
   /*
    * Metodo: bloquearUsuario
-   * Funcao: Envia APDU BLOCK para o Lider do conjunto correspondente a 1a letra de nomeCliente
+   * Funcao: Envia APDU BLOCK para o servidor conectado
    * Parametros: usuarioBloqueado = nome do usuario a bloquear
    * Retorno: boolean
    */
   public boolean bloquearUsuario(String usuarioBloqueado) {
-    int conjunto = calcularConjuntoPorNome(this.nomeCliente);
-    int portaTCP = calcularPortaTCPPorConjunto(conjunto);
-
-    try (Socket socketCliente = abrirSocketTCPGlobal(portaTCP, TIMEOUT_TCP)) {
-
-      ObjectOutputStream saida = new ObjectOutputStream(socketCliente.getOutputStream());
-      saida.flush();
-      ObjectInputStream entrada = new ObjectInputStream(socketCliente.getInputStream());
-
+    try {
       APDU apdu = new APDU("BLOCK", null, this.nomeCliente, null, this.portaClienteUDP, usuarioBloqueado);
-
-      System.out.println("CLIENTE - [ROTEAMENTO] Enviando APDU BLOCK ('" + this.nomeCliente
-          + "' -> '" + usuarioBloqueado + "') -> Conjunto " + conjunto + " " + obterFaixaConjunto(conjunto)
-          + " (TCP " + socketCliente.getPort() + ")...");
-      saida.writeObject(apdu);
-      saida.flush();
-
-      String resposta = (String) entrada.readObject();
-      
-      if (resposta != null && resposta.startsWith("OK: ")) {
-        return true;
-      } // fim do if
-
-      return false;
-
-    } catch (java.net.SocketTimeoutException e) {
-      System.out.println("CLIENTE - ERRO: Tempo limite excedido. O Lider do Conjunto "
-          + conjunto + " (TCP " + portaTCP + ") nao respondeu ao BLOCK.");
+      String resposta = enviarRequisicaoTCP(apdu, TIMEOUT_TCP, "'" + this.nomeCliente + "' -> '" + usuarioBloqueado + "'");
+      return resposta != null && resposta.startsWith("OK:");
+    } catch (SocketTimeoutException e) {
+      System.out.println("CLIENTE - ERRO: Tempo limite excedido no BLOCK.");
       return false;
     } catch (Exception e) {
       System.out.println("CLIENTE - ERRO: Falha na conexao com o servidor no BLOCK!");
@@ -902,42 +716,19 @@ public class Cliente extends Thread {
     } // fim do try-catch
   } // fim do metodo bloquearUsuario
 
-  
   /*
    * Metodo: desbloquearUsuario
-   * Funcao: Envia APDU UNBLOCK para o Lider do conjunto correspondente a 1a letra de nomeCliente
+   * Funcao: Envia APDU UNBLOCK para o servidor conectado
    * Parametros: usuarioDesbloqueado = nome do usuario a desbloquear
    * Retorno: boolean
    */
   public boolean desbloquearUsuario(String usuarioDesbloqueado) {
-    int conjunto = calcularConjuntoPorNome(this.nomeCliente);
-    int portaTCP = calcularPortaTCPPorConjunto(conjunto);
-
-    try (Socket socketCliente = abrirSocketTCPGlobal(portaTCP, TIMEOUT_TCP)) {
-
-      ObjectOutputStream saida = new ObjectOutputStream(socketCliente.getOutputStream());
-      saida.flush();
-      ObjectInputStream entrada = new ObjectInputStream(socketCliente.getInputStream());
-
+    try {
       APDU apdu = new APDU("UNBLOCK", null, this.nomeCliente, null, this.portaClienteUDP, usuarioDesbloqueado);
-
-      System.out.println("CLIENTE - [ROTEAMENTO] Enviando APDU UNBLOCK ('" + this.nomeCliente
-          + "' -> '" + usuarioDesbloqueado + "') -> Conjunto " + conjunto + " " + obterFaixaConjunto(conjunto)
-          + " (TCP " + socketCliente.getPort() + ")...");
-      saida.writeObject(apdu);
-      saida.flush();
-
-      String resposta = (String) entrada.readObject();
-      
-      if (resposta != null && resposta.startsWith("OK: ")) {
-        return true;
-      } // fim do if
-
-      return false;
-
-    } catch (java.net.SocketTimeoutException e) {
-      System.out.println("CLIENTE - ERRO: Tempo limite excedido. O Lider do Conjunto "
-          + conjunto + " (TCP " + portaTCP + ") nao respondeu ao UNBLOCK.");
+      String resposta = enviarRequisicaoTCP(apdu, TIMEOUT_TCP, "'" + this.nomeCliente + "' -> '" + usuarioDesbloqueado + "'");
+      return resposta != null && resposta.startsWith("OK:");
+    } catch (SocketTimeoutException e) {
+      System.out.println("CLIENTE - ERRO: Tempo limite excedido no UNBLOCK.");
       return false;
     } catch (Exception e) {
       System.out.println("CLIENTE - ERRO: Falha na conexao com o servidor no UNBLOCK!");
@@ -947,8 +738,9 @@ public class Cliente extends Thread {
 
   /*
    * Metodo: enviarConfirmacao
-   * Funcao: Monta e envia uma APDU de confirmacao (Status 2 ou 3) de volta ao servidor
-   * Parametros: idMensagem = ID unico da mensagem, status = 2 (entregue) ou 3 (lido), nomeGrupo = onde a msg foi enviada, donoDaMensagem = quem enviou originalmente
+   * Funcao: Monta e envia uma APDU de confirmacao (Status 2 ou 3) de volta ao servidor conectado
+   * Parametros: idMensagem = ID unico da mensagem, status = 2 (entregue) ou 3 (lido),
+   * nomeGrupo = onde a msg foi enviada, donoDaMensagem = quem enviou originalmente
    * Retorno: void
    */
   public void enviarConfirmacao(String idMensagem, int status, String nomeGrupo, String donoDaMensagem) {
@@ -957,7 +749,6 @@ public class Cliente extends Thread {
     }
 
     try {
-      // O APDU de confirmacao exige saber quem e o dono original para que o servidor possa encaminhar corretamente
       APDU apduConfirm = new APDU("CONFIRM", idMensagem, status, this.nomeCliente, nomeGrupo, donoDaMensagem);
       enviarObjetoUDP(apduConfirm);
       System.out.println("CLIENTE - Enviando tick (Status " + status + ") para a mensagem ID: " + idMensagem);
@@ -973,6 +764,7 @@ public class Cliente extends Thread {
    * Retorno: void
    */
   public void desligarCliente() {
+    logoutRealizado = true;
     escutaUDPAtiva = false;
     if (endpointCliente != null && !endpointCliente.isClosed()) {
       endpointCliente.close();

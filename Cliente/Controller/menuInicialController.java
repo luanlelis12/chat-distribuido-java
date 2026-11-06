@@ -94,9 +94,8 @@ public class menuInicialController implements Initializable {
       return;
     } // fim do if
 
-    // Faz um broadcast para encontrar o servidor do conjunto correspondente ao nome do cliente
-    int portaAlvo = Model.Cliente.calcularPortaTCPPorNome(nomeCliente);
-    String ipServidor = Descobridor.descobrirServidor(portaAlvo);
+    // Faz um broadcast para encontrar o servidor automaticamente
+    String ipServidor = Descobridor.descobrirServidor();
 
     if (ipServidor == null) { // se o servidor estiver fora de ar emitir alert
       try {

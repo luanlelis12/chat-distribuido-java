@@ -11,43 +11,49 @@ package Network;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
-import java.net.InetSocketAddress;
 import java.net.InterfaceAddress;
 import java.net.NetworkInterface;
-import java.net.Socket;
-import java.net.SocketTimeoutException;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 public class Descobridor {
+
+  private static volatile int ultimaPortaTCPDescoberta = 6789;
+  private static volatile int ultimaPortaUDPDescoberta = 7777;
+
+  public static int getUltimaPortaTCPDescoberta() {
+    return ultimaPortaTCPDescoberta;
+  }
+
+  public static int getUltimaPortaUDPDescoberta() {
+    return ultimaPortaUDPDescoberta;
+  }
+
+  private static void extrairPortasDaResposta(String resposta) {
+    ultimaPortaTCPDescoberta = 6789;
+    ultimaPortaUDPDescoberta = 7777;
+    if (resposta != null && resposta.startsWith("IP:")) {
+      String[] partes = resposta.split(":");
+      if (partes.length >= 3) {
+        try {
+          ultimaPortaTCPDescoberta = Integer.parseInt(partes[1].trim());
+          ultimaPortaUDPDescoberta = Integer.parseInt(partes[2].trim());
+        } catch (NumberFormatException ignored) {
+          ultimaPortaTCPDescoberta = 6789;
+          ultimaPortaUDPDescoberta = 7777;
+        }
+      }
+    }
+  }
 
   /*
    * Metodo: descobrirServidor
    * Funcao: Envia broadcast UDP varrendo todas as interfaces de rede locais
-   * ativas (padrao: procura qualquer lider nas portas 6789, 6790 ou 6791)
+   * ativas na porta 8888 (sem abrir conexoes TCP vazias nos servidores)
    * Parametros: nenhum
    * Retorno: String com o IP encontrado ou null
    */
   public static String descobrirServidor() {
-    return descobrirServidor(-1);
-  } // fim do metodo descobrirServidor
-
-  /*
-   * Metodo: descobrirServidor (com porta TCP alvo do conjunto)
-   * Funcao: Descobre o IP do servidor Lider que responde pelo conjunto desejado
-   * (portaTCPAlvo = 6789 para [A..I], 6790 para [J..R], 6791 para [S..Z]).
-   * Coleta multiplas respostas ao broadcast na porta 8888 e verifica qual IP
-   * possui a porta TCP do conjunto aberta (suportando localhost e multiplas maquinas).
-   */
-  public static String descobrirServidor(int portaTCPAlvo) {
-    // 1. Verificacao rapida em localhost (127.0.0.1) para a porta especifica do conjunto
-    if (portaTCPAlvo > 0 && testarPortaTCP("127.0.0.1", portaTCPAlvo, 250)) {
-      System.out.println("CLIENTE - Lider da porta TCP " + portaTCPAlvo + " encontrado em localhost (127.0.0.1).");
-      return "127.0.0.1";
-    } // fim do if
-
     List<InetAddress> broadcasts = coletarBroadcasts();
     try {
       broadcasts.add(InetAddress.getByName("255.255.255.255"));
@@ -55,12 +61,9 @@ public class Descobridor {
       System.err.println("CLIENTE - AVISO: Nao foi possivel adicionar broadcast padrao: " + e.getMessage());
     } // fim do try-catch
 
-    String primeiroIpEncontrado = null;
-    Set<String> ipsTestados = new HashSet<>();
-
     try (DatagramSocket socket = new DatagramSocket()) {
       socket.setBroadcast(true);
-      socket.setSoTimeout(1200);
+      socket.setSoTimeout(2000);
 
       byte[] pedido = "SERVIDOR_IP".getBytes();
       byte[] buffer = new byte[256];
@@ -76,89 +79,34 @@ public class Descobridor {
         } // fim do try-catch
       } // fim do for
 
-      long limite = System.currentTimeMillis() + 2000;
-      while (System.currentTimeMillis() < limite) {
-        DatagramPacket pacoteResposta = new DatagramPacket(buffer, buffer.length);
-        try {
-          socket.receive(pacoteResposta);
-          String resposta = new String(pacoteResposta.getData(), 0, pacoteResposta.getLength()).trim();
-          if (resposta.equals("IP")) {
-            String ip = pacoteResposta.getAddress().getHostAddress();
-            if (primeiroIpEncontrado == null) {
-              primeiroIpEncontrado = ip;
-            } // fim do if
+      DatagramPacket pacoteResposta = new DatagramPacket(buffer, buffer.length);
+      socket.receive(pacoteResposta);
 
-            if (portaTCPAlvo <= 0) {
-              System.out.println("CLIENTE - Servidor encontrado no IP: " + ip);
-              return ip;
-            } // fim do if
-
-            if (!ipsTestados.contains(ip)) {
-              ipsTestados.add(ip);
-              if (testarPortaTCP(ip, portaTCPAlvo, 400)) {
-                System.out.println("CLIENTE - Lider da porta TCP " + portaTCPAlvo + " encontrado no IP: " + ip);
-                return ip;
-              } // fim do if
-            } // fim do if
-          } // fim do if
-        } catch (SocketTimeoutException e) {
-          break;
-        } // fim do try-catch
-      } // fim do while
+      String resposta = new String(pacoteResposta.getData(), 0, pacoteResposta.getLength()).trim();
+      if (resposta.equals("IP") || resposta.startsWith("IP:")) {
+        extrairPortasDaResposta(resposta);
+        String ip = pacoteResposta.getAddress().getHostAddress();
+        System.out.println("CLIENTE - Servidor encontrado com sucesso no IP: " + ip
+            + " (TCP:" + ultimaPortaTCPDescoberta + " / UDP:" + ultimaPortaUDPDescoberta + ")");
+        return ip;
+      } // fim do if
     } catch (Exception e) {
-      System.out.println("CLIENTE - Erro na rede: " + e.getMessage());
+      System.out.println("CLIENTE - Erro na rede ou tempo esgotado (Servidor Desligado?): " + e.getMessage());
     } // fim do try-catch
-
-    String ipLocalhost = tentarLocalhostDireto(portaTCPAlvo);
-    if (ipLocalhost != null) {
-      return ipLocalhost;
-    } // fim do if
-
-    if (primeiroIpEncontrado != null) {
-      System.out.println("CLIENTE - Usando IP descoberto no cluster: " + primeiroIpEncontrado);
-      return primeiroIpEncontrado;
-    } // fim do if
-
-    return null;
+    return tentarLocalhostDireto();
   } // fim do metodo descobrirServidor
 
   /*
-   * Metodo: testarPortaTCP
-   * Funcao: Verifica rapidamente se um endereço IP esta escutando na porta TCP informada
-   */
-  public static boolean testarPortaTCP(String ip, int portaTCP, int timeoutMs) {
-    try (Socket s = new Socket()) {
-      s.connect(new InetSocketAddress(ip, portaTCP), timeoutMs);
-      return true;
-    } catch (Exception e) {
-      return false;
-    } // fim do try-catch
-  } // fim do metodo testarPortaTCP
-
-  /*
    * Metodo: tentarLocalhostDireto
-   * Funcao: Tenta descobrir o servidor enviando o datagrama diretamente para
-   * 127.0.0.1 ou verificando as portas TCP locais (6789, 6790, 6791)
-   * Parametros: portaTCPAlvo = porta TCP desejada (ou -1 para qualquer uma)
+   * Funcao: Tenta descobrir o servidor enviando o datagrama UDP diretamente para
+   * 127.0.0.1 na porta 8888, util quando nao ha interfaces de rede ativas
+   * Parametros: nenhum
    * Retorno: String com o IP 127.0.0.1 ou null
    */
-  private static String tentarLocalhostDireto(int portaTCPAlvo) {
+  private static String tentarLocalhostDireto() {
     System.out.println("CLIENTE - Tentando conexao direta em localhost...");
-    if (portaTCPAlvo > 0 && testarPortaTCP("127.0.0.1", portaTCPAlvo, 300)) {
-      System.out.println("CLIENTE - Servidor encontrado em localhost na porta TCP " + portaTCPAlvo + ".");
-      return "127.0.0.1";
-    } // fim do if
-
-    int[] portasPadrao = { 6789, 6790, 6791 };
-    for (int porta : portasPadrao) {
-      if (testarPortaTCP("127.0.0.1", porta, 250)) {
-        System.out.println("CLIENTE - Servidor encontrado em localhost na porta TCP " + porta + ".");
-        return "127.0.0.1";
-      } // fim do if
-    } // fim do for
-
     try (DatagramSocket socket = new DatagramSocket()) {
-      socket.setSoTimeout(1000);
+      socket.setSoTimeout(2000);
       byte[] pedido = "SERVIDOR_IP".getBytes();
       DatagramPacket pacoteGrito = new DatagramPacket(pedido, pedido.length, InetAddress.getByName("127.0.0.1"), 8888);
       socket.send(pacoteGrito);
@@ -168,7 +116,8 @@ public class Descobridor {
       socket.receive(pacoteResposta);
 
       String resposta = new String(pacoteResposta.getData(), 0, pacoteResposta.getLength()).trim();
-      if (resposta.equals("IP")) {
+      if (resposta.equals("IP") || resposta.startsWith("IP:")) {
+        extrairPortasDaResposta(resposta);
         System.out.println("CLIENTE - Servidor encontrado em localhost.");
         return "127.0.0.1";
       } // fim do if

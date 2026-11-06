@@ -15,6 +15,8 @@ public class Principal {
   public static void main(String[] args) {
     Integer idForcado = null;
 
+    String ipServidor = Servidor.obterIpLocalServidor();
+
     if (args.length > 0) {
       try {
         int parsed = Integer.parseInt(args[0]);
@@ -26,6 +28,7 @@ public class Principal {
           int portaUDP = Servidor.PORTA_UDP_BASE + (conjunto - 1);
 
           System.out.println("===================================================");
+          System.out.println("[SERVIDOR] Iniciando no IP: " + ipServidor);
           System.out.println("[CONFIG] ID do Servidor informado: " + idForcado);
           System.out.println("[SHARDING] Conjunto atribuido (ID % 3): Conjunto " + conjunto + " " + faixa);
           System.out.println("[PORTAS] Atendimento de Clientes -> TCP: " + portaTCP + " | UDP: " + portaUDP);
@@ -37,15 +40,12 @@ public class Principal {
         System.err.println("[AVISO] Parametro invalido ('" + args[0] + "'). Usando auto-atribuicao dinamica.");
       } // fim do try-catch
     } else {
+      System.out.println("===================================================");
+      System.out.println("[SERVIDOR] Iniciando no IP: " + ipServidor);
       System.out.println("[CONFIG] Nenhum ID passado via argumento (ex: java Principal <ID>).");
       System.out.println("[CONFIG] O cluster auto-atribuira o proximo ID livre e calculara o conjunto.");
+      System.out.println("===================================================");
     } // fim do if
-
-    try {
-      System.out.println("IP LOCAL DO SERVIDOR: " + InetAddress.getLocalHost().getHostAddress());
-    } catch (Exception e) {
-      System.out.println("Nao foi possivel identificar o IP do servidor.");
-    } // fim do try-catch
 
     Servidor servidor = new Servidor(idForcado);
     servidor.start();

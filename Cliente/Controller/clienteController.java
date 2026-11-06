@@ -12,7 +12,9 @@ import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.ResourceBundle;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import Model.Cliente;
@@ -87,6 +89,7 @@ public class clienteController implements Initializable {
 
   static final String GRUPO = "grupo";
   static final String PRIVADO = "priv";
+  static final String BLOQUEIO = "bloqueio";
 
   private static clienteController instancia;
   private static Cliente cliente;
@@ -96,6 +99,7 @@ public class clienteController implements Initializable {
   private final HashMap<String, Label> mapaTicks = new HashMap<>(); // Mapa para guardar os icones dos ticks
   private final ConcurrentHashMap<String, Integer> statusTicksPendentes = new ConcurrentHashMap<>();
   private final HashMap<Pair<String, String>, ArrayList<String[]>> mensagensNaoLidas = new HashMap<>(); 
+  private final Set<String> usuariosBloqueados = new HashSet<>(); // Usuarios bloqueados pelo cliente atual
   private boolean isVisuUnica = false; // Controle da Visualizacao Unica
 
   /*
@@ -160,33 +164,21 @@ public class clienteController implements Initializable {
   } // fim do metodo initialize
 
   /*
-   * Metodo: calcularConjuntoAlvo
-   * Funcao: Auxiliar no controller para identificar o conjunto [A..I], [J..R] ou [S..Z]
-   * e a respectiva porta TCP (6789, 6790 ou 6791) de um grupo ou utilizador
-   */
-  public static int calcularConjuntoAlvo(String chave) {
-    return Cliente.calcularConjuntoPorNome(chave);
-  }
-
-  /*
    * Metodo: criarCliente
-   * Funcao: Cria um cliente e verifica se o login foi aprovado no conjunto correspondente
+   * Funcao: Cria um cliente e verifica se o login foi aprovado no servidor de contato
    * Parametros: nome = nome do usuario, ipServidor = IP do servidor
    * Retorno: true se o login foi aprovado, false caso contrario
    */
   public static boolean criarCliente(String nome, String ipServidor) {
     try {
-      int conjunto = calcularConjuntoAlvo(nome);
-      int portaTCP = Cliente.calcularPortaTCPPorConjunto(conjunto);
-      System.out.println("CONTROLLER - Iniciando cliente '" + nome + "' -> Conjunto "
-          + conjunto + " " + Cliente.obterFaixaConjunto(conjunto) + " (Porta TCP: " + portaTCP + ")");
+      System.out.println("CONTROLLER - Iniciando cliente '" + nome + "' -> Servidor [" + ipServidor + "]");
 
       cliente = new Cliente(nome, ipServidor);
       boolean aprovado = cliente.fazerLogin();
 
-      // Verifica se o login do cliente foi aprovada
+      // Verifica se o login do cliente foi aprovado
       if (aprovado) {
-        System.out.println("CLIENTE - Login aprovado no Conjunto " + conjunto + "!");
+        System.out.println("CLIENTE - Login aprovado no servidor!");
         cliente.iniciarEscutaUDP();
         return true;
       } else {
@@ -204,7 +196,6 @@ public class clienteController implements Initializable {
   /*
    * Metodo: enviarMensagem
    * Funcao: envia para a classe cliente a mensagem que o usuario quer enviar
-   * roteando para o conjunto correspondente ao grupo ou destinatario privado
    * Parametros:
    * Retorno: void
    */
@@ -219,11 +210,11 @@ public class clienteController implements Initializable {
       return;
 
     String alvo = conversaSelecionada.getKey();
-    int conjuntoAlvo = calcularConjuntoAlvo(alvo);
-    int portaUDPAlvo = Cliente.calcularPortaUDPPorConjunto(conjuntoAlvo);
+    String ipServ = (cliente != null && cliente.getIpServidor() != null)
+        ? cliente.getIpServidor().getHostAddress()
+        : "desconhecido";
     System.out.println("CONTROLLER - Enviando mensagem \"" + mensagem + "\" para '" + alvo
-        + "' -> Conjunto " + conjuntoAlvo + " " + Cliente.obterFaixaConjunto(conjuntoAlvo)
-        + " (UDP " + portaUDPAlvo + ")");
+        + "' via Servidor [" + ipServ + ":" + cliente.getPORTA_SERVIDOR_UDP() + " (UDP)]");
 
     String msgId = null;
     if (conversaSelecionada.getValue().equals(GRUPO)) {
@@ -991,57 +982,59 @@ public class clienteController implements Initializable {
   } // fim do metodo abrirAlertaVisuUnica
 
   /*
-   * Metodo: processarBloqueioUsuario
-   * Funcao: Recebe o nome do popup e bloqueia ou desbloqueia o usuario dependendo
-   * da opcao escolhida
-   * Parametros: usuario = nome do usuario a ser bloqueado/desbloqueado, isBloquear = true para bloquear, false para desbloquear
-   * Retorno: void
+   * Metodo: isUsuarioBloqueado
+   * Funcao: Verifica se um usuario consta na lista de bloqueados deste cliente
    */
-  public void processarBloqueioUsuario(String usuario, boolean isBloquear) {
+  public boolean isUsuarioBloqueado(String usuario) {
+    if (usuario == null) {
+      return false;
+    }
+    return usuariosBloqueados.contains(usuario.trim());
+  }
+
+  /*
+   * Metodo: processarBloqueioUsuario
+   * Funcao: Bloqueia ou desbloqueia o usuario no servidor e atualiza o estado local de bloqueio
+   * Parametros: usuario = nome do usuario a ser bloqueado/desbloqueado, isBloquear = true para bloquear, false para desbloquear
+   * Retorno: boolean indicando se a operacao foi concluida com sucesso
+   */
+  public boolean processarBloqueioUsuario(String usuario, boolean isBloquear) {
     if (usuario == null || usuario.trim().isEmpty()) {
       System.out.println("CLIENTE - Nome invalido para a operacao.");
-      return;
+      return false;
     } // fim do if
 
+    String nomeLimpo = usuario.trim();
     if (isBloquear) {
-      if (cliente.bloquearUsuario(usuario)) {
-        System.out.println("CLIENTE - Usuario " + usuario + " foi bloqueado!");
+      if (cliente.bloquearUsuario(nomeLimpo)) {
+        usuariosBloqueados.add(nomeLimpo);
+        System.out.println("CLIENTE - Usuario " + nomeLimpo + " foi bloqueado!");
+        return true;
       } else {
-        System.out.println("CLIENTE - Falha ao bloquear o usuario " + usuario + "!");
+        System.out.println("CLIENTE - Falha ao bloquear o usuario " + nomeLimpo + "!");
+        return false;
       } // fim do if
     } else {
-      if (cliente.desbloquearUsuario(usuario)) {
-        System.out.println("CLIENTE - Usuario " + usuario + " foi desbloqueado!");
+      if (cliente.desbloquearUsuario(nomeLimpo)) {
+        usuariosBloqueados.remove(nomeLimpo);
+        System.out.println("CLIENTE - Usuario " + nomeLimpo + " foi desbloqueado!");
+        return true;
       } else {
-        System.out.println("CLIENTE - Falha ao desbloquear o usuario " + usuario + "!");
+        System.out.println("CLIENTE - Falha ao desbloquear o usuario " + nomeLimpo + "!");
+        return false;
       } // fim do if
     } // fim do if
   } // fim do metodo processarBloqueioUsuario
 
   /*
    * Metodo: abrirTelaBloquearUsuario
-   * Funcao: Abre o popup para digitar o nome de quem sera bloqueado
-    * Parametros: nenhum
-    * Retorno: void
+   * Funcao: Solicita a lista de usuarios e abre a interface de listagem (usuariosPane)
+   * no modo BLOQUEIO (exibindo os botoes de Bloquear/Desbloquear em cada item)
+   * Parametros: nenhum
+   * Retorno: void
    */
   public void abrirTelaBloquearUsuario() {
-    try {
-      FXMLLoader loader = new FXMLLoader(getClass().getResource("/View/bloquearUsuario.fxml"));
-      Parent root = loader.load();
-
-      bloquearUsuarioController controladorPopup = loader.getController();
-      controladorPopup.setControladorPai(this);
-
-      Stage janelaPopup = new Stage();
-      janelaPopup.setScene(new Scene(root));
-      janelaPopup.initStyle(StageStyle.UNDECORATED);
-      janelaPopup.initModality(Modality.APPLICATION_MODAL);
-      janelaPopup.show();
-
-    } catch (IOException e) {
-      System.out.println("CLIENTE - Erro: Nao foi possivel carregar a tela de bloquear usuarios.");
-      e.printStackTrace();
-    } // fim do try-catch
+    cliente.solicitarListaUsuariosBloqueio();
   } // fim do metodo abrirTelaBloquearUsuario
 
   /*
@@ -1108,6 +1101,23 @@ public class clienteController implements Initializable {
       } // fim do if
   }
 
+
+  /*
+   * Metodo: obterGruposAtivos
+   * Funcao: Retorna a lista de grupos nos quais o usuario esta presente atualmente na interface,
+   * permitindo a re-sincronizacao transparente com o servidor em caso de failover
+   */
+  public static ArrayList<String> obterGruposAtivos() {
+    ArrayList<String> grupos = new ArrayList<>();
+    if (instancia != null && instancia.listaConversas != null) {
+      for (Pair<String, String> chave : instancia.listaConversas.keySet()) {
+        if (chave != null && GRUPO.equals(chave.getValue()) && chave.getKey() != null) {
+          grupos.add(chave.getKey());
+        }
+      }
+    }
+    return grupos;
+  }
 
   /*
    * Metodo: getCliente

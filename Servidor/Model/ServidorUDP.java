@@ -101,18 +101,41 @@ public class ServidorUDP extends Thread {
         ObjectInputStream in = new ObjectInputStream(bais);
         APDU apduRecebida = (APDU) in.readObject();
         InetAddress ipRemetente = pacote.getAddress();
+        int portaOrigemPacote = pacote.getPort();
+        boolean veioDeProxyServidor = (portaOrigemPacote >= Servidor.PORTA_UDP_BASE
+            && portaOrigemPacote <= Servidor.PORTA_UDP_BASE + 2);
 
         new Thread(() -> {
           try {
+            boolean usuarioSincronizadoAgora = false;
             servidor.mutex.acquire();
             try {
               String nomeRem = apduRecebida.getNomeUsuario();
-              if (nomeRem != null && !nomeRem.trim().isEmpty() && !nomeRem.equals("SERVIDOR")
-                  && apduRecebida.getPortaClienteUDP() > 0
-                  && !servidor.usuariosOnline.containsKey(nomeRem.trim())) {
-                servidor.usuariosOnline.put(nomeRem.trim(),
-                    new Usuario(ipRemetente, nomeRem.trim(), apduRecebida.getPortaClienteUDP()));
+              if (!veioDeProxyServidor && nomeRem != null && !nomeRem.trim().isEmpty()
+                  && !nomeRem.equals("SERVIDOR") && apduRecebida.getPortaClienteUDP() > 0) {
+                InetAddress ipReal = resolverIpRealCliente(ipRemetente);
+                Usuario uExistente = servidor.usuariosOnline.get(nomeRem.trim());
+                if (uExistente == null) {
+                  servidor.usuariosOnline.put(nomeRem.trim(),
+                      new Usuario(ipReal, nomeRem.trim(), apduRecebida.getPortaClienteUDP()));
+                  usuarioSincronizadoAgora = true;
+                } else if (uExistente.getPorta() != apduRecebida.getPortaClienteUDP()
+                    || uExistente.getIp() == null || !uExistente.getIp().equals(ipReal)) {
+                  uExistente.setIp(ipReal);
+                  uExistente.setPorta(apduRecebida.getPortaClienteUDP());
+                  usuarioSincronizadoAgora = true;
+                }
               }
+            } finally {
+              servidor.mutex.release();
+            }
+
+            if (usuarioSincronizadoAgora && servidor.isLider() && servidor.getGerenteRedundancia() != null) {
+              servidor.getGerenteRedundancia().enviarSnapshotSincrono();
+            }
+
+            servidor.mutex.acquire();
+            try {
               processarApduUDP(apduRecebida);
             } finally {
               servidor.mutex.release();
@@ -145,8 +168,24 @@ public class ServidorUDP extends Thread {
   }
 
   /*
+   * Metodo: resolverIpRealCliente
+   * Funcao: Caso o cliente conecte via loopback (127.0.0.1), converte para o IP
+   * roteavel da maquina para que outros servidores possam enviar pacotes UDP de volta ao cliente
+   */
+  private InetAddress resolverIpRealCliente(InetAddress ipSocket) {
+    if (ipSocket == null || ipSocket.isLoopbackAddress() || ipSocket.isAnyLocalAddress()) {
+      try {
+        return InetAddress.getByName(Servidor.obterIpLocalServidor());
+      } catch (Exception ignored) {
+      }
+    }
+    return ipSocket;
+  }
+
+  /*
    * Metodo: processarApduUDP
-   * Funcao: Analisa o conteudo da operacao e decide qual fluxo de mensagem chamar
+   * Funcao: Analisa o conteudo da operacao e decide se processa localmente na particao
+   * ou se encaminha via Proxy UDP para o Lider da particao correspondente
    * Parametros: apdu = apdu extraida do pacote UDP
    * Retorno: void
    */
@@ -158,27 +197,80 @@ public class ServidorUDP extends Thread {
     } // fim do if
 
     switch (operacao) {
-      case "SEND":
+      case "SEND": {
+        int conjuntoAlvo = Servidor.calcularConjuntoPorNome(apdu.getNomeGrupo());
+        if (conjuntoAlvo != servidor.getConjunto()) {
+          encaminharApduUDPConjunto(apdu, conjuntoAlvo);
+          return;
+        }
         avisarRecebimentoServidor(apdu);
         enviarMensagem(apdu, apdu.getNomeGrupo(), apdu.getNomeUsuario());
         break;
-      case "SENDPVT":
+      }
+      case "SENDPVT": {
+        int conjuntoAlvo = Servidor.calcularConjuntoPorNome(apdu.getDestinatario());
+        if (conjuntoAlvo != servidor.getConjunto()) {
+          encaminharApduUDPConjunto(apdu, conjuntoAlvo);
+          return;
+        }
         avisarRecebimentoServidor(apdu);
         enviarMensagemPrivado(apdu, apdu.getDestinatario(), apdu.getNomeUsuario());
         break;
-      case "SENDVU":
-        avisarRecebimentoServidor(apdu);
+      }
+      case "SENDVU": {
         if (apdu.getDestinatario() != null) {
+          int conjuntoAlvo = Servidor.calcularConjuntoPorNome(apdu.getDestinatario());
+          if (conjuntoAlvo != servidor.getConjunto()) {
+            encaminharApduUDPConjunto(apdu, conjuntoAlvo);
+            return;
+          }
+          avisarRecebimentoServidor(apdu);
           enviarMensagemPrivado(apdu, apdu.getDestinatario(), apdu.getNomeUsuario());
         } else {
+          int conjuntoAlvo = Servidor.calcularConjuntoPorNome(apdu.getNomeGrupo());
+          if (conjuntoAlvo != servidor.getConjunto()) {
+            encaminharApduUDPConjunto(apdu, conjuntoAlvo);
+            return;
+          }
+          avisarRecebimentoServidor(apdu);
           enviarMensagem(apdu, apdu.getNomeGrupo(), apdu.getNomeUsuario());
         }
         break;
-      case "CONFIRM":
+      }
+      case "CONFIRM": {
+        if (apdu.getNomeGrupo() != null && !apdu.getNomeGrupo().trim().isEmpty()) {
+          int conjuntoAlvo = Servidor.calcularConjuntoPorNome(apdu.getNomeGrupo());
+          if (conjuntoAlvo != servidor.getConjunto()) {
+            encaminharApduUDPConjunto(apdu, conjuntoAlvo);
+            return;
+          }
+        } else if (!servidor.esperadosGrupo.containsKey(apdu.getIdMensagem())
+            && apdu.getNomeUsuario() != null && !"SERVIDOR".equals(apdu.getNomeUsuario())) {
+          int conjuntoAlvo = Servidor.calcularConjuntoPorNome(apdu.getNomeUsuario());
+          if (conjuntoAlvo != servidor.getConjunto()) {
+            encaminharApduUDPConjunto(apdu, conjuntoAlvo);
+            return;
+          }
+        }
         encaminharConfirmacao(apdu);
         break;
+      }
     } // fim do switch-case
   } // fim do processarApduUDP
+
+  /*
+   * Metodo: encaminharApduUDPConjunto
+   * Funcao: Repassa uma APDU via UDP interno para o Lider da particao responsavel (conjuntoAlvo)
+   */
+  private void encaminharApduUDPConjunto(APDU apdu, int conjuntoAlvo) {
+    InetAddress ipLider = servidor.obterIpLiderConjunto(conjuntoAlvo);
+    int portaLider = Servidor.calcularPortaUDPPorConjunto(conjuntoAlvo);
+    if (ipLider != null) {
+      System.out.println("      -> [PROXY-UDP] Encaminhando [" + apdu.getOperacao() + "] para Lider do Conjunto "
+          + conjuntoAlvo + " (" + ipLider.getHostAddress() + ":" + portaLider + ").");
+      enviarObjetoUDP(apdu, ipLider, portaLider);
+    }
+  }
 
   /*
    * Metodo: enviarObjetoUDP
@@ -224,15 +316,34 @@ public class ServidorUDP extends Thread {
    * Retorno: void
    */
   public void enviarMensagem(APDU apdu, String nomeGrupo, String nomeUsuarioRemetente) {
-    if (!servidor.grupos.containsKey(nomeGrupo))
-      return;
     Usuario usuarioRemetente = servidor.usuariosOnline.get(nomeUsuarioRemetente);
-    ArrayList<Usuario> listaDeUsuarios = servidor.grupos.get(nomeGrupo);
-
     if (usuarioRemetente == null) {
       System.out.println("      -> AVISO: Remetente nao encontrado no servidor. Mensagem ignorada.");
       return;
     } // fim do if
+
+    if (!servidor.grupos.containsKey(nomeGrupo)) {
+      ArrayList<Usuario> novoGrupo = new ArrayList<>();
+      novoGrupo.add(usuarioRemetente);
+      servidor.grupos.put(nomeGrupo, novoGrupo);
+      if (servidor.isLider() && servidor.getGerenteRedundancia() != null) {
+        servidor.getGerenteRedundancia().enviarSnapshotSincrono();
+      }
+    }
+    ArrayList<Usuario> listaDeUsuarios = servidor.grupos.get(nomeGrupo);
+    boolean remetenteNoGrupo = false;
+    for (Usuario u : listaDeUsuarios) {
+      if (u.getNome().equals(nomeUsuarioRemetente)) {
+        remetenteNoGrupo = true;
+        break;
+      }
+    }
+    if (!remetenteNoGrupo) {
+      listaDeUsuarios.add(usuarioRemetente);
+      if (servidor.isLider() && servidor.getGerenteRedundancia() != null) {
+        servidor.getGerenteRedundancia().enviarSnapshotSincrono();
+      }
+    }
 
     HashSet<String> membrosEsperados = new HashSet<>();
 

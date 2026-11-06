@@ -82,6 +82,8 @@ public class listarConversasController implements Initializable {
       tituloLabel.setText("Grupos");
     } else if (tipo.equals(clienteController.PRIVADO)) {
       tituloLabel.setText("Membros");
+    } else if (tipo.equals(clienteController.BLOQUEIO)) {
+      tituloLabel.setText("Bloqueios");
     } // fim do if-else
 
     // Mostra um aviso se nao houver ninguem ou nenhum grupo
@@ -92,13 +94,17 @@ public class listarConversasController implements Initializable {
 
     // Exibe na tela todos os grupos/membros
     for (String item : conversas) {
-      if (tipo.equals(clienteController.PRIVADO)) {
+      if (tipo.equals(clienteController.PRIVADO) || tipo.equals(clienteController.BLOQUEIO)) {
         if (item.equals(controladorPai.getCliente().getNomeCliente())) {
           continue; // Pula o proprio usuario
         } // fim do if
       } // fim do if
       adicionarGruposOuMembros(item);
     } // fim do for
+
+    if (vboxConversas.getChildren().isEmpty()) {
+      vboxConversas.getChildren().add(new Label("Nenhum item encontrado."));
+    }
   }
 
   /*
@@ -127,8 +133,8 @@ public class listarConversasController implements Initializable {
       Button sairConversa = (Button) itemConversa.lookup(".buttonSair");
       itemConversa.getChildren().remove(sairConversa);
 
-      // Se for um usuario inicializa uma imagem diferente
-      if (tipoConversa.equals(clienteController.PRIVADO)) {
+      // Se for um usuario (PRIVADO ou BLOQUEIO), inicializa o icone de usuario
+      if (tipoConversa.equals(clienteController.PRIVADO) || tipoConversa.equals(clienteController.BLOQUEIO)) {
         String caminhoImagem = "/View/img/iconPriv.png";
 
         try {
@@ -139,12 +145,38 @@ public class listarConversasController implements Initializable {
         } // fim do try-catch
       } // fim do if
 
+      // Adiciona o botao de Bloquear/Desbloquear APENAS quando aberto pelo Gerenciar Bloqueios
+      if (tipoConversa.equals(clienteController.BLOQUEIO)) {
+        if (labelNome != null) {
+          labelNome.setMaxWidth(98.0);
+        }
+
+        Button botaoBloqueio = new Button();
+        botaoBloqueio.setLayoutX(178.0);
+        botaoBloqueio.setLayoutY(20.0);
+        botaoBloqueio.setPrefWidth(94.0);
+        botaoBloqueio.setPrefHeight(30.0);
+        atualizarEstiloBotaoBloqueio(botaoBloqueio, controladorPai.isUsuarioBloqueado(nomeConversa));
+
+        botaoBloqueio.setOnMouseClicked(event -> event.consume());
+        botaoBloqueio.setOnAction(event -> {
+          event.consume();
+          boolean bloqueadoAtualmente = controladorPai.isUsuarioBloqueado(nomeConversa);
+          boolean sucesso = controladorPai.processarBloqueioUsuario(nomeConversa, !bloqueadoAtualmente);
+          if (sucesso) {
+            atualizarEstiloBotaoBloqueio(botaoBloqueio, !bloqueadoAtualmente);
+          }
+        });
+
+        itemConversa.getChildren().add(botaoBloqueio);
+      } // fim do if
+
       if (tipoConversa.equals(clienteController.GRUPO)) { // se for um grupo possibilita entrar no grupo clicando nele
         itemConversa.setOnMouseClicked(event -> {
           controladorPai.entrarGrupo(nomeConversa);
           fecharTela();
         });
-      } else if (tipoConversa.equals(clienteController.PRIVADO)) { // se for um usuario criar uma conversa no privado clicando nele
+      } else if (tipoConversa.equals(clienteController.PRIVADO)) { // se for listagem de membros/usuarios abre conversa privada
         itemConversa.setOnMouseClicked(event -> {
           controladorPai.criarConversaPrivada(nomeConversa);
           fecharTela();
@@ -157,6 +189,20 @@ public class listarConversasController implements Initializable {
       e.printStackTrace();
     } // fim do try-catch
   } // fim do metodo adicionarConversaNaTela
+
+  /*
+   * Metodo: atualizarEstiloBotaoBloqueio
+   * Funcao: Configura o texto ("Bloquear" ou "Desbloquear") e a cor do botao dentro da box do usuario
+   */
+  private void atualizarEstiloBotaoBloqueio(Button botao, boolean estaBloqueado) {
+    if (estaBloqueado) {
+      botao.setText("Desbloquear");
+      botao.setStyle("-fx-background-color: #2e7d32; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 11px; -fx-background-radius: 6; -fx-cursor: hand;");
+    } else {
+      botao.setText("Bloquear");
+      botao.setStyle("-fx-background-color: #c62828; -fx-text-fill: white; -fx-font-weight: bold; -fx-font-size: 11px; -fx-background-radius: 6; -fx-cursor: hand;");
+    }
+  }
 
   /*
    * Metodo: fecharTela

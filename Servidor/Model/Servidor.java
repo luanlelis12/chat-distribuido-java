@@ -13,7 +13,11 @@ import java.io.ByteArrayOutputStream;
 import java.io.ObjectOutputStream;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
+import java.net.Inet4Address;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
 import java.util.ArrayList;
+import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -26,7 +30,7 @@ public class Servidor {
   private final int PORTA_DESCOBERTA = 8888;
 
   // Configuracao de Particionamento (Sharding) e Portas Dinamicas
-  private int conjunto = 1;
+  private int conjunto = -1;
   private String faixaLetras = "[A..I]";
   private int portaTCP = PORTA_TCP_BASE;
   private int portaUDP = PORTA_UDP_BASE;
@@ -104,6 +108,35 @@ public class Servidor {
   } // fim do metodo obterFaixaPorConjunto
 
   /*
+   * Metodo: obterIpLocalServidor
+   * Funcao: Descobre o IP real da interface de rede ativa do servidor (evitando 127.0.1.1 no Linux)
+   */
+  public static String obterIpLocalServidor() {
+    try {
+      Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+      while (interfaces.hasMoreElements()) {
+        NetworkInterface iface = interfaces.nextElement();
+        if (!iface.isUp() || iface.isLoopback() || iface.isVirtual()) {
+          continue;
+        }
+        Enumeration<InetAddress> enderecos = iface.getInetAddresses();
+        while (enderecos.hasMoreElements()) {
+          InetAddress addr = enderecos.nextElement();
+          if (addr instanceof Inet4Address && !addr.isLoopbackAddress() && !addr.isAnyLocalAddress()) {
+            return addr.getHostAddress();
+          }
+        }
+      }
+    } catch (Exception ignored) {
+    }
+    try {
+      return InetAddress.getLocalHost().getHostAddress();
+    } catch (Exception e) {
+      return "127.0.0.1";
+    }
+  }
+
+  /*
    * Metodo: configurarParticao
    * Funcao: Define conjunto, faixa de letras e portas TCP/UDP com base no ID do servidor
    * Parametros: id (ID do servidor), exibirLog (booleano para exibir log de configuracao)
@@ -117,7 +150,9 @@ public class Servidor {
     this.portaUDP = PORTA_UDP_BASE + offset;
 
     if (exibirLog) {
+      String ipLocal = obterIpLocalServidor();
       System.out.println("===================================================");
+      System.out.println("[SERVIDOR] IP do Servidor: " + ipLocal);
       System.out.println("[SHARDING] Servidor ID " + id + " -> Conjunto " + this.conjunto + " " + this.faixaLetras);
       System.out.println("[PORTAS] configuradas -> TCP: " + this.portaTCP + " | UDP: " + this.portaUDP);
       System.out.println("===================================================");
@@ -189,10 +224,11 @@ public class Servidor {
     }
     this.isLider = true;
 
+    String ipLocal = obterIpLocalServidor();
     System.out.println("\n***************************************************");
     System.out.println("[COROACAO] SERVIDOR ASSUMIU A LIDERANCA! (ID: " + idServidor
-        + " | Conjunto " + conjunto + " " + faixaLetras + ")");
-    System.out.println("[COROACAO] Abrindo portas: TCP (" + portaTCP + "), UDP (" + portaUDP
+        + " | Conjunto " + conjunto + " " + faixaLetras + " | IP: " + ipLocal + ")");
+    System.out.println("[COROACAO] Abrindo portas em " + ipLocal + ": TCP (" + portaTCP + "), UDP (" + portaUDP
         + "), Descoberta (" + PORTA_DESCOBERTA + ")");
     System.out.println("***************************************************\n");
 
@@ -201,9 +237,8 @@ public class Servidor {
     // Notifica os clientes existentes sobre a presenca do novo lider
     notificarClientesNovaLideranca();
 
-    // Notifica os standbys do conjunto apenas se ja possuir grupos locais ativos
-    // (evita que um novo lider recem-iniciado sobrescreva grupos de um lider preemptado)
-    if (gerenteRedundancia != null && !this.grupos.isEmpty()) {
+    // Notifica os standbys e demais conjuntos se ja possuir grupos ou usuarios ativos na memoria
+    if (gerenteRedundancia != null && (!this.grupos.isEmpty() || !this.usuariosOnline.isEmpty())) {
       gerenteRedundancia.replicarEstado();
     } // fim do if
   } // fim do metodo promoverParaLider
@@ -270,7 +305,8 @@ public class Servidor {
           return;
         } // fim do if
 
-        Protocol.APDU apduAviso = new Protocol.APDU("CONFIRM", "0", 0, "SERVIDOR");
+        Protocol.APDU apduAviso = new Protocol.APDU("CONFIRM", "0", 0, "SERVIDOR",
+            this.portaTCP + ":" + this.portaUDP, null);
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         ObjectOutputStream out = new ObjectOutputStream(baos);
         out.writeObject(apduAviso);
@@ -361,7 +397,13 @@ public class Servidor {
 
           String mensagem = new String(pacote.getData(), 0, pacote.getLength()).trim();
           if (mensagem.equals("SERVIDOR_IP")) {
-            byte[] resposta = "IP".getBytes();
+            if (conjunto > 1) {
+              try {
+                Thread.sleep(50L * (conjunto - 1));
+              } catch (InterruptedException ignored) {
+              }
+            }
+            byte[] resposta = ("IP:" + portaTCP + ":" + portaUDP).getBytes();
             DatagramPacket pacoteRes = new DatagramPacket(
                 resposta, resposta.length, pacote.getAddress(), pacote.getPort());
             socketDescoberta.send(pacoteRes);
@@ -398,9 +440,47 @@ public class Servidor {
   }
 
   /*
+   * Metodo: calcularPortaTCPPorConjunto
+   * Funcao: Retorna a porta TCP (6789, 6790 ou 6791) correspondente ao conjunto (1, 2 ou 3)
+   */
+  public static int calcularPortaTCPPorConjunto(int conjuntoAlvo) {
+    return PORTA_TCP_BASE + (conjuntoAlvo - 1);
+  }
+
+  /*
+   * Metodo: calcularPortaUDPPorConjunto
+   * Funcao: Retorna a porta UDP (7777, 7778 ou 7779) correspondente ao conjunto (1, 2 ou 3)
+   */
+  public static int calcularPortaUDPPorConjunto(int conjuntoAlvo) {
+    return PORTA_UDP_BASE + (conjuntoAlvo - 1);
+  }
+
+  /*
+   * Metodo: obterIpLiderConjunto
+   * Funcao: Retorna o InetAddress do Lider responsavel pelo conjuntoAlvo (1, 2 ou 3)
+   * usando o mapeamento do cluster ou fallback para localhost (127.0.0.1)
+   */
+  public InetAddress obterIpLiderConjunto(int conjuntoAlvo) {
+    try {
+      if (conjuntoAlvo == this.conjunto) {
+        return InetAddress.getByName("127.0.0.1");
+      }
+      if (gerenteRedundancia != null) {
+        InetAddress ipCluster = gerenteRedundancia.obterIpLiderConjunto(conjuntoAlvo);
+        if (ipCluster != null) {
+          return ipCluster;
+        }
+      }
+      return InetAddress.getByName("127.0.0.1");
+    } catch (Exception e) {
+      return null;
+    }
+  }
+
+  /*
    * Metodo: aplicarSincronizacao
    * Funcao: Atualiza a memoria central com snapshot recebido:
-   * - usuariosOnline (Global): atualizado a partir de qualquer conjunto da rede
+   * - usuariosOnline (Global): atualizado integralmente a partir de qualquer Lider da rede
    * - grupos (Parcial): atualizado APENAS se o pacote vier do mesmo conjunto
    * Parametros: pacote (SyncPacote contendo usuarios online e grupos)
    */
@@ -421,24 +501,11 @@ public class Servidor {
     try {
       mutex.acquire();
       try {
-        // 1. REPLICACAO GLOBAL: Atualiza a lista global de usuariosOnline
+        // 1. REPLICACAO PARCIAL E GLOBAL DO MESMO CONJUNTO
         if (mesmoConjunto) {
-          if (!pacote.getUsuariosOnline().isEmpty() || !this.isLider) {
-            this.usuariosOnline.clear();
-            this.usuariosOnline.putAll(pacote.getUsuariosOnline());
-          }
-        } else {
-          // Quando o pacote vem de outro conjunto (conjuntoOrigem), removemos apenas usuarios
-          // daquele conjuntoOrigem que tenham feito LOGOUT (nao estao mais no pacote),
-          // preservando usuarios de outros conjuntos e adicionando todos os novos usuarios!
-          this.usuariosOnline.entrySet().removeIf(entry ->
-              calcularConjuntoPorNome(entry.getKey()) == conjuntoOrigem
-                  && !pacote.getUsuariosOnline().containsKey(entry.getKey()));
+          this.usuariosOnline.clear();
           this.usuariosOnline.putAll(pacote.getUsuariosOnline());
-        }
 
-        // 2. REPLICACAO PARCIAL: Atualiza a lista de grupos APENAS se vier do mesmo conjunto
-        if (mesmoConjunto) {
           this.grupos.clear();
           for (Map.Entry<String, ArrayList<Usuario>> entry : pacote.getGrupos().entrySet()) {
             ArrayList<Usuario> listaSincronizada = new ArrayList<>();
@@ -457,10 +524,12 @@ public class Servidor {
               + usuariosOnline.size() + " usuario(s) [Global: " + usuariosOnline.keySet() + "], "
               + grupos.size() + " grupo(s) [Parcial: " + grupos.keySet() + "].");
         } else {
-          // Veio de outro conjunto: preserva integralmente os grupos desta particao e sincroniza
-          // as referencias de Usuario (bloqueios/IP) ou remove quem fez LOGOUT naquele conjunto
+          // 2. REPLICACAO GLOBAL DE OUTRO CONJUNTO: Mescla usuariosOnline (logins/bloqueios/IPs)
+          // preservando integralmente os grupos locais e evitando que um no recem-iniciado apague usuarios
+          if (pacote.getUsuariosOnline() != null && !pacote.getUsuariosOnline().isEmpty()) {
+            this.usuariosOnline.putAll(pacote.getUsuariosOnline());
+          }
           for (ArrayList<Usuario> membros : this.grupos.values()) {
-            membros.removeIf(u -> !this.usuariosOnline.containsKey(u.getNome()));
             for (int i = 0; i < membros.size(); i++) {
               Usuario atualizado = this.usuariosOnline.get(membros.get(i).getNome());
               if (atualizado != null) {
@@ -468,7 +537,6 @@ public class Servidor {
               }
             }
           }
-          this.grupos.entrySet().removeIf(entry -> entry.getValue().isEmpty());
 
           System.out.println("[SYNC-GLOBAL] Usuarios online sincronizados pelo Lider ID "
               + pacote.getIdOrigem() + " (Conjunto " + conjuntoOrigem + ") -> "
@@ -479,6 +547,10 @@ public class Servidor {
       } finally {
         mutex.release();
       } // fim do try-finally
+
+      if (mesmoConjunto && this.isLider && !this.grupos.isEmpty()) {
+        notificarAlteracaoMemoria();
+      }
     } catch (Exception e) {
       System.err.println("[SYNC-ERRO] Falha ao aplicar sincronizacao: " + e.getMessage());
     } // fim do try-catch
