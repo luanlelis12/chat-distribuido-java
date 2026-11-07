@@ -97,23 +97,32 @@ public class menuInicialController implements Initializable {
     // Faz um broadcast para encontrar o servidor automaticamente
     String ipServidor = Descobridor.descobrirServidor();
 
-    if (ipServidor == null) { // se o servidor estiver fora de ar emitir alert
+    if (ipServidor == null) { // se o broadcast nao encontrar o servidor, solicita o IP manualmente
       try {
         FXMLLoader loader = new FXMLLoader(getClass().getResource("/View/alert.fxml"));
         Parent root = loader.load();
 
         alertController controladorDoAlerta = loader.getController();
-        controladorDoAlerta.setDetalhes("Servidor Nao Encontrado", "Nao foi possivel localizar o servidor na rede local. Verifique se ele esta ligado e tente novamente.");
+        controladorDoAlerta.setDetalhes("Servidor Nao Encontrado",
+            "Nao foi possivel localizar o servidor via Broadcast. Digite o IP do servidor manualmente:");
+        controladorDoAlerta.habilitarInput("Ex: 192.168.0.10");
+
         Stage janelaAlerta = new Stage();
         janelaAlerta.setScene(new Scene(root));
         janelaAlerta.initStyle(StageStyle.UNDECORATED);
         janelaAlerta.initModality(Modality.APPLICATION_MODAL);
-        janelaAlerta.show();
+        janelaAlerta.showAndWait();
+
+        String ipDigitado = controladorDoAlerta.getValorConfirmado();
+        if (ipDigitado == null || ipDigitado.trim().isEmpty()) {
+          return;
+        }
+        ipServidor = ipDigitado.trim();
       } catch (IOException e) {
         System.out.println("CLIENTE - Erro ao abrir alerta!");
         e.printStackTrace();
+        return;
       } // fim do try-catch
-      return;
     } // fim do if
 
     // Se achou, tenta conectar enviando o IP que descobriu

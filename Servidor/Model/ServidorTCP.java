@@ -389,7 +389,6 @@ public class ServidorTCP extends Thread {
     System.out.println("      -> [PROXY-TCP] Grupo '" + apdu.getNomeGrupo() + "' pertence ao Conjunto "
         + conjuntoAlvo + ". Encaminhando [" + apdu.getOperacao() + "] para Lider " + hostLider + ":" + portaLider);
 
-    Object resposta = "ERRO: Lider da particao " + conjuntoAlvo + " indisponivel";
     try (Socket socketInterno = new Socket()) {
       socketInterno.connect(new InetSocketAddress(hostLider, portaLider), 2000);
       socketInterno.setSoTimeout(3000);
@@ -401,20 +400,22 @@ public class ServidorTCP extends Thread {
       outInterno.writeObject(apdu);
       outInterno.flush();
 
-      resposta = inInterno.readObject();
+      Object resposta = inInterno.readObject();
       System.out.println("      -> [PROXY-TCP] Resposta recebida do Conjunto " + conjuntoAlvo + ": " + resposta);
-    } catch (Exception e) {
-      System.err.println("      -> [PROXY-TCP-ERRO] Falha ao encaminhar [" + apdu.getOperacao()
-          + "] para Conjunto " + conjuntoAlvo + " (" + hostLider + ":" + portaLider + "): " + e.getMessage());
-    }
 
-    try {
       if (saidaCliente != null) {
         saidaCliente.writeObject(resposta);
         saidaCliente.flush();
       }
     } catch (Exception e) {
-      System.err.println("[TCP-ERRO] Falha ao devolver resposta de Proxy ao cliente: " + e.getMessage());
+      System.err.println("      -> [PROXY-TCP-ERRO] Falha ao encaminhar [" + apdu.getOperacao()
+          + "] para Conjunto " + conjuntoAlvo + " (" + hostLider + ":" + portaLider + "): " + e.getMessage());
+      try {
+        if (saidaCliente != null) {
+          saidaCliente.close();
+        }
+      } catch (Exception ignored) {
+      }
     }
   }
 

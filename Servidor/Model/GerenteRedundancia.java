@@ -25,7 +25,7 @@ public class GerenteRedundancia {
   private static final String IP_MULTICAST = "230.0.0.1";
   private static final int PORTA_CLUSTER = 9999;
   private static final int INTERVALO_HEARTBEAT_MS = 1200;
-  private static final int TIMEOUT_LIDER_MS = 3500;
+  private static final int TIMEOUT_LIDER_MS = 5000;
   private static final int JANELA_SONDAGEM_MS = 1000;
 
   private final Servidor servidor;
@@ -451,7 +451,7 @@ public class GerenteRedundancia {
   private void loopWatchdog() {
     while (executando) {
       try {
-        Thread.sleep(500);
+        Thread.sleep(500 + (long) (Math.random() * 200));
 
         if (this.id == -1 || servidor.isLider()) {
           continue; // Lider nao precisa monitorar outros
@@ -503,13 +503,7 @@ public class GerenteRedundancia {
    */
   public void enviarSnapshotSincrono() {
     try {
-      servidor.mutex.acquire();
-      SyncPacote sync;
-      try {
-        sync = new SyncPacote(this.id, servidor.usuariosOnline, servidor.grupos);
-      } finally {
-        servidor.mutex.release();
-      } // fim do try-finally
+      SyncPacote sync = new SyncPacote(this.id, servidor.usuariosOnline, servidor.grupos);
 
       enviarPacote(new PacoteCluster(PacoteCluster.Tipo.SYNC_ESTADO, this.id, servidor.isLider(), sync));
       System.out.println("[SYNC-PUSH] Estado replicado no canal do cluster ("
