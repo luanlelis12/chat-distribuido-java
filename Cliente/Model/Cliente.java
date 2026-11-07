@@ -210,22 +210,6 @@ public class Cliente extends Thread {
   }
 
   /*
-   * Metodo: servidorAtualAcessivelTCP
-   * Funcao: Verifica rapidamente se o servidor de contato atual ainda responde conexoes TCP
-   */
-  private boolean servidorAtualAcessivelTCP() {
-    if (this.ipServidor == null) {
-      return false;
-    }
-    try (Socket s = new Socket()) {
-      s.connect(new InetSocketAddress(this.ipServidor, PORTA_SERVIDOR_TCP), 400);
-      return true;
-    } catch (Exception e) {
-      return false;
-    }
-  }
-
-  /*
    * Metodo: enviarRequisicaoTCP
    * Funcao: Envia uma APDU via TCP para o unico servidor de contato do cliente.
    * Se houver queda/falha fisica na conexao (IOException / SocketTimeoutException),
@@ -294,35 +278,41 @@ public class Cliente extends Thread {
             ObjectInputStream in = new ObjectInputStream(bais);
             APDU apduRecebida = (APDU) in.readObject();
 
-            // Pacote leve de presenca enviado por um Standby recem-promovido a Lider
+            // Pacote de presenca enviado por um Standby recem-promovido a Lider
             if ("CONFIRM".equals(apduRecebida.getOperacao())
                 && "0".equals(apduRecebida.getIdMensagem())
                 && apduRecebida.getStatusRecebido() == 0
                 && "SERVIDOR".equals(apduRecebida.getNomeUsuario())) {
-              if (ipRemetente != null) {
-                int portaTCPNotificada = this.PORTA_SERVIDOR_TCP;
-                int portaUDPNotificada = this.PORTA_SERVIDOR_UDP;
-                String infoPortas = apduRecebida.getNomeGrupo();
-                if (infoPortas != null && infoPortas.contains(":")) {
-                  try {
-                    String[] partes = infoPortas.split(":");
-                    portaTCPNotificada = Integer.parseInt(partes[0].trim());
-                    portaUDPNotificada = Integer.parseInt(partes[1].trim());
-                  } catch (NumberFormatException ignored) {
+
+              String info = apduRecebida.getNomeGrupo();
+              if (info != null && info.contains(":")) {
+                try {
+                  String[] partes = info.split(":");
+                  InetAddress novoIpLider;
+                  int novaPortaTCP;
+                  int novaPortaUDP;
+
+                  if (partes.length == 3) {
+                    novoIpLider = InetAddress.getByName(partes[0].trim());
+                    novaPortaTCP = Integer.parseInt(partes[1].trim());
+                    novaPortaUDP = Integer.parseInt(partes[2].trim());
+                  } else {
+                    novoIpLider = ipRemetente;
+                    novaPortaTCP = Integer.parseInt(partes[0].trim());
+                    novaPortaUDP = Integer.parseInt(partes[1].trim());
                   }
+
+                  this.ipServidor = novoIpLider;
+                  this.PORTA_SERVIDOR_TCP = novaPortaTCP;
+                  this.PORTA_SERVIDOR_UDP = novaPortaUDP;
+
+                  System.out.println("CLIENTE - [NOVA LIDERANCA] Ponto de contato atualizado para o novo Lider em: "
+                      + this.ipServidor.getHostAddress() + ":" + this.PORTA_SERVIDOR_TCP);
+
+                  new Thread(this::resincronizarComServidor).start();
+                } catch (Exception e) {
+                  System.err.println("CLIENTE - Erro ao processar nova lideranca: " + e.getMessage());
                 }
-                final int novaPortaTCP = portaTCPNotificada;
-                final int novaPortaUDP = portaUDPNotificada;
-                new Thread(() -> {
-                  if (novaPortaTCP == this.PORTA_SERVIDOR_TCP || !servidorAtualAcessivelTCP()) {
-                    this.ipServidor = ipRemetente;
-                    this.PORTA_SERVIDOR_TCP = novaPortaTCP;
-                    this.PORTA_SERVIDOR_UDP = novaPortaUDP;
-                    System.out.println("CLIENTE - [NOVA LIDERANCA] Ponto de contato atualizado para o novo Lider em: "
-                        + ipRemetente.getHostAddress() + ":" + this.PORTA_SERVIDOR_TCP);
-                  }
-                  resincronizarComServidor();
-                }).start();
               }
               continue;
             }

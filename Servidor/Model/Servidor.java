@@ -287,48 +287,57 @@ public class Servidor {
 
   /*
    * Metodo: notificarClientesNovaLideranca
-   * Funcao: Envia um datagrama UDP a cada cliente online notificando a presenca e IP do novo lider
+   * Funcao: Envia datagramas UDP aos clientes online notificando presenca, IP e portas do novo lider
    */
   private void notificarClientesNovaLideranca() {
     new Thread(() -> {
       try {
-        Thread.sleep(400); // Pausa graciosa para estabilizar a subida dos servicos
+        Thread.sleep(300); // Pausa para estabilizacao dos binds locais
         List<Usuario> lista;
         mutex.acquire();
         try {
           lista = new ArrayList<>(usuariosOnline.values());
         } finally {
           mutex.release();
-        } // fim do try-finally
+        }
 
         if (lista.isEmpty()) {
           return;
-        } // fim do if
+        }
 
+        String ipLocal = obterIpLocalServidor();
+        // Formato padronizado: IP:portaTCP:portaUDP
         Protocol.APDU apduAviso = new Protocol.APDU("CONFIRM", "0", 0, "SERVIDOR",
-            this.portaTCP + ":" + this.portaUDP, null);
+            ipLocal + ":" + this.portaTCP + ":" + this.portaUDP, null);
+
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         ObjectOutputStream out = new ObjectOutputStream(baos);
         out.writeObject(apduAviso);
         out.flush();
         byte[] dados = baos.toByteArray();
 
-        try (DatagramSocket socketEnvio = new DatagramSocket()) {
-          for (Usuario u : lista) {
-            try {
-              DatagramPacket pacote = new DatagramPacket(dados, dados.length, u.getIp(), u.getPorta());
-              socketEnvio.send(pacote);
-              System.out.println("[LIDER] Notificado cliente '" + u.getNome() + "' ("
-                  + u.getIp().getHostAddress() + ":" + u.getPorta() + ") sobre nova lideranca.");
-            } catch (Exception ignored) {
-            } // fim do try-catch
-          } // fim do for
-        } // fim do try-with-resources
+        // 2 rajadas para mitigar perdas UDP
+        for (int rajada = 0; rajada < 2; rajada++) {
+          try (DatagramSocket socketEnvio = new DatagramSocket()) {
+            for (Usuario u : lista) {
+              try {
+                DatagramPacket pacote = new DatagramPacket(dados, dados.length, u.getIp(), u.getPorta());
+                socketEnvio.send(pacote);
+                if (rajada == 0) {
+                  System.out.println("[LIDER] Notificado cliente '" + u.getNome() + "' ("
+                      + u.getIp().getHostAddress() + ":" + u.getPorta() + ") sobre nova lideranca.");
+                }
+              } catch (Exception ignored) {
+              }
+            }
+          }
+          Thread.sleep(150);
+        }
       } catch (Exception e) {
         System.err.println("[LIDER-AVISO] Falha ao notificar clientes sobre lideranca: " + e.getMessage());
-      } // fim do try-catch
+      }
     }, "Thread-NotificarClientesLideranca").start();
-  } // fim do metodo notificarClientesNovaLideranca
+  }
 
   /*
    * Metodo: pararServicosCliente
